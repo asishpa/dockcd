@@ -1,0 +1,97 @@
+import json
+
+from django.http import JsonResponse, HttpResponseForbidden
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+
+from applications.models import Application
+from common.api_response import success_response
+from dockcd.tasks import run_deployment
+from services.models import Service
+from deployment.models import Deployment
+from deployment.executor import LocalDeploymentExecutor
+from webhooks.models import GitHubWebhook
+from webhooks.services import create_github_webhook
+from webhooks.utils import verify_github_signature
+from rest_framework.views import APIView
+
+
+@csrf_exempt
+@require_POST
+def github_webhook(request):
+    payload = request.body 
+    signature = request.headers.get("X-Hub-Signature-256")
+
+    try:
+        data = json.loads(payload)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    repo_url = data["repository"]["clone_url"]
+    branch = data["repository"]["default_branch"]
+
+    try:
+        application = Application.objects.get(
+            repo_url=repo_url,
+            branch=branch
+        )
+    except Application.DoesNotExist:
+        return JsonResponse({"status": "ignored"}, status=200)
+
+    try:
+        webhook = application.github_webhook
+
+    except GitHubWebhook.DoesNotExist:
+        return HttpResponseForbidden("Webhook not configured")
+
+    if not verify_github_signature(
+        webhook.secret,
+        payload,
+        signature
+    ):
+        return HttpResponseForbidden("Invalid signature")
+
+    changed_files = set()
+
+    for commit in data.get("commits", []):
+        for f in commit.get("added", []):
+            changed_files.add(f)
+        for f in commit.get("modified", []):
+            changed_files.add(f)
+        for f in commit.get("removed", []):
+            changed_files.add(f)
+
+    triggered = []
+
+    services = Service.objects.filter(
+        application=application,
+        auto_deploy=True
+    )
+
+    for service in services:
+        if service.compose_file_path in changed_files:
+            deployment = Deployment.objects.create(
+                service=service,
+                commit_sha=data.get("after", "")
+            )
+            run_deployment.delay(deployment.id)
+            triggered.append(str(deployment.id))
+
+    return JsonResponse({
+        "status": "processed",
+        "deployments": triggered
+    })
+
+
+class CreateGitHubWebhookView(APIView):
+
+    def post(self, request):
+
+        application_id = request.data["application_id"]
+        secret = request.data["secret"]
+
+        webhook = create_github_webhook(application_id, secret)
+
+        return success_response({
+            "webhook_id": str(webhook.id)
+        })

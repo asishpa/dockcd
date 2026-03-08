@@ -1,0 +1,137 @@
+# Byte-compiled / optimized / DLL files
+
+**pycache**/
+*.py[cod]
+*$py.class
+
+# Python virtual environment
+
+venv/
+env/
+ENV/
+.venv/
+venv/
+
+# Distribution / packaging
+.env
+.Python
+build/
+dist/
+downloads/
+.eggs/
+*.egg-info/
+*.egg
+pip-wheel-metadata/
+
+# Installer logs
+
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+pytest_cache/
+nosetests.xml
+coverage.xml
+
+# Django stuff
+
+*.log
+*.pot
+*.pyc
+db.sqlite3
+db.sqlite3-journal
+media/
+
+# Static files collected by collectstatic
+
+staticfiles/
+
+# Environment variables
+
+.env
+.env.*
+
+# Django migrations (optional — many teams keep these)
+
+**/migrations/*
+!**/migrations/**init**.py
+
+# IDE / Editor
+
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+
+.DS_Store
+Thumbs.db
+
+# Celery
+
+celerybeat-schedule
+celerybeat.pid
+
+# mypy
+
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+
+.pyre/
+
+# Ruff
+
+.ruff_cache/
+
+# Logs
+
+*.log
+
+# Backup files
+
+*.bak
+*.tmp
+# Python cache
+
+**pycache**/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+
+venv/
+env/
+.venv/
+
+# Django
+
+db.sqlite3
+*.log
+media/
+
+# Environment variables
+
+.env
+
+# IDE
+
+.vscode/
+.idea/
+
+# OS
+
+.DS_Store
+Thumbs.db
+db.sqlite3
+postgres_data/
