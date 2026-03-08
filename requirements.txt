@@ -1,0 +1,7 @@
+django
+djangorestframework
+pyyaml
+redis
+celery
+psycopg2-binary
+python-dotenv
