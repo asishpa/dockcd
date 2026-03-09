@@ -5,3 +5,6 @@ redis
 celery
 psycopg2-binary
 python-dotenv
+docker
+djangorestframework-simplejwt
+drf-yasg

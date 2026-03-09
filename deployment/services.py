@@ -1,6 +1,6 @@
 from deployment.models import Deployment
 from deployment.executor import LocalDeploymentExecutor
-from dockcd.tasks import run_deployment
+from deployment.tasks import run_deployment
 
 def trigger_application_deployment(application):
     services = application.services.all()

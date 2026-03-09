@@ -7,12 +7,16 @@ class Deployment(models.Model):
     STATUS_RUNNING = "running"
     STATUS_SUCCESS = "success"
     STATUS_FAILED = "failed"
+    STATUS_QUEUED = "queued"
+    STATUS_SUPERSEDED = "superseded"
 
     STATUS_CHOICES = [
         (STATUS_PENDING, "Pending"),
         (STATUS_RUNNING, "Running"),
         (STATUS_SUCCESS, "Success"),
         (STATUS_FAILED, "Failed"),
+        (STATUS_QUEUED, "Queued"),
+        (STATUS_SUPERSEDED, "Superseded"),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
