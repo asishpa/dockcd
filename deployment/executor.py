@@ -1,20 +1,29 @@
+from asyncio.log import logger
 import cmd
 from concurrent.futures import process
 import os
 import subprocess
 from datetime import datetime
-
+import uuid
 from django.utils import timezone
 from .models import Deployment
-
-
+from common.redis_client import redis_client
 class LocalDeploymentExecutor:
     def __init__(self, deployment: Deployment):
         self.deployment = deployment
         self.service = deployment.service
         self.application = self.service.application
+        self.lock_token  = str(uuid.uuid4())
+        
 
     def run(self):
+        if not self._acquire_lock():
+            logger.info(f"Deployment already in progress for service {self.service.name}. Marking this deployment as queued.")
+            self.deployment.status = Deployment.STATUS_QUEUED
+            self.deployment.logs += "\nAnother deployment is currently in progress. This deployment has been queued and will run once the current deployment finishes."
+            self.deployment.save(update_fields=["status", "logs"])
+            return
+
         try:
             self._mark_running()
             self._sync_repo()
@@ -24,6 +33,9 @@ class LocalDeploymentExecutor:
         except Exception as exc:
             self._mark_failed(str(exc))
             raise
+        finally:
+            self._release_lock()
+            self._trigger_next_deployment()
 
     # --------------------
     # State updates
@@ -115,3 +127,29 @@ class LocalDeploymentExecutor:
 
         if process.returncode != 0:
             raise RuntimeError(f"Command failed: {command_str}")
+    
+
+    def _acquire_lock(self):
+        lock_key = f"deploy_lock:{self.service.id}"
+        acquired = redis_client.set(lock_key,self.lock_token, nx=True, ex=600)
+        return acquired
+    
+    def _release_lock(self):
+        lock_key = f"deploy_lock:{self.service.id}"
+        token = redis_client.get(lock_key)
+        if token == self.lock_token:
+            redis_client.delete(lock_key)
+    def _trigger_next_deployment(self):
+        #this is intenetional to break circular import as run_deployment also imports LocalDeploymentExecutor to run the deployment task
+        from .tasks import run_deployment
+        queued = (
+            Deployment.objects
+            .filter(service=self.service, status=Deployment.STATUS_QUEUED)
+        
+        .order_by("created_at")
+        )
+        next_deployment = queued.first()
+        if not next_deployment:
+            return
+        queued.exclude(id=next_deployment.id).update(status=Deployment.STATUS_SUPERSEDED)
+        run_deployment.delay(str(next_deployment.id))

@@ -1,3 +1,5 @@
+##here do not use common api response as these are not client facing apis and we want to return specific status for different scenarios like ignored, duplicate etc which is not error but also not success. We can use custom status codes or messages in the response to indicate these scenarios clearly.
+
 import json
 
 from django.http import JsonResponse, HttpResponseForbidden
@@ -6,7 +8,8 @@ from django.views.decorators.http import require_POST
 
 from applications.models import Application
 from common.api_response import success_response
-from dockcd.tasks import run_deployment
+from common.permissions import IsAdmin
+from deployment.tasks import run_deployment
 from services.models import Service
 from deployment.models import Deployment
 from deployment.executor import LocalDeploymentExecutor
@@ -14,14 +17,15 @@ from webhooks.models import GitHubWebhook
 from webhooks.services import create_github_webhook
 from webhooks.utils import verify_github_signature
 from rest_framework.views import APIView
-
+from webhooks.utils import is_duplicate_event
 
 @csrf_exempt
 @require_POST
 def github_webhook(request):
     payload = request.body 
     signature = request.headers.get("X-Hub-Signature-256")
-
+    delivery_id = request.headers.get("X-GitHub-Delivery")
+    
     try:
         data = json.loads(payload)
     except json.JSONDecodeError:
@@ -50,7 +54,8 @@ def github_webhook(request):
         signature
     ):
         return HttpResponseForbidden("Invalid signature")
-
+    if is_duplicate_event(delivery_id):
+        return JsonResponse({"status": "duplicate"}, status=200)
     changed_files = set()
 
     for commit in data.get("commits", []):
@@ -84,6 +89,7 @@ def github_webhook(request):
 
 
 class CreateGitHubWebhookView(APIView):
+    permission_classes = [IsAdmin]
 
     def post(self, request):
 

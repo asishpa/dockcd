@@ -1,11 +1,12 @@
 from rest_framework.views import APIView
 from applications.serializers import ApplicationRegistrationSerializer
+from common.permissions import IsAdmin
 from .service import register_application_service
 from common.api_response import success_response
 
 
 class RegisterApplicationView(APIView):
-
+    permission_classes = [IsAdmin]
     def post(self, request):
         serializer = ApplicationRegistrationSerializer(
             data=request.data

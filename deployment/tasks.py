@@ -1,6 +1,6 @@
 from celery import shared_task
-from deployment.models import Deployment
-from deployment.executor import LocalDeploymentExecutor
+from .models import Deployment
+from .executor import LocalDeploymentExecutor
 
 @shared_task
 def run_deployment(deployment_id):
