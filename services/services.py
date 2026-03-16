@@ -39,3 +39,4 @@ def start_service(service):
         container.start()
         started.append(container.name)
     return started
+

@@ -1,5 +1,5 @@
 from django.urls import path
-from services.views import RestartServiceView, ServiceContainersView, ServiceStatusView, StartServiceView, StopServiceView
+from services.views import ContainerLogsView, RestartServiceView, ServiceContainersView, ServiceStatusView, StartServiceView, StopServiceView
 
 urlpatterns = [
     
@@ -27,6 +27,11 @@ urlpatterns = [
         "<uuid:service_id>/containers/",
         ServiceContainersView.as_view(),
         name="service-containers"
+    ),
+    path(
+        "containers/<str:container_name>/logs/",
+        ContainerLogsView.as_view(),
+        name="container-logs"
     )
 
 ]

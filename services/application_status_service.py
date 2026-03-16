@@ -44,6 +44,7 @@ def get_application_services_status(application):
                 health = state["Health"]["Status"]
             
             container_info.append({
+                "id": container.id,
                 "name": container.name,
                 "status": state["Status"],
                 "health": health,
