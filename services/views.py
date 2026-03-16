@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from drf_spectacular.utils import extend_schema
 from rest_framework.views import APIView
+from common import docker_client
 from common.api_response import success_response,error_response
 from common.permissions import IsAdminOrDeveloper, IsAutheneticatedUser, IsAdmin
 from services.command_service import validate_command
@@ -117,3 +118,17 @@ class ServiceContainersView(APIView):
         })
         serializer.is_valid(raise_exception=True)
         return success_response(serializer.data)
+    
+class ContainerLogsView(APIView):
+    permission_classes = [IsAutheneticatedUser]
+
+    def get(self,request,container_name):
+        tail = request.GET.get("tail", 200)
+        try:
+            container = docker_client.containers.get(container_name)
+        except docker_client.errors.NotFound:
+            return error_response("CONTAINER_NOT_FOUND","Container not found", status=400)
+        logs = container.logs(tail=tail).decode("utf-8")
+        return success_response({
+            "container_name": container_name,
+            "logs": logs})

@@ -35,4 +35,24 @@ class ServiceExecConsumer(AsyncWebsocketConsumer):
         for chunk in stream:
             await self.send(chunk.decode())
 
-        
+
+
+
+
+class ContainerLogsConsumer(AsyncWebsocketConsumer):
+
+    async def connect(self):
+        self.container_name = self.scope['url_route']['kwargs']['container_name']
+        try:
+            self.container = await sync_to_async(docker_client.containers.get)(self.container_name)
+        except Exception:
+            await self.close()
+            return
+        await self.accept()
+
+        for line in self.container.logs(stream=True,follow=True):
+            await self.send(
+                text_data=json.dumps({
+                    "log": line.decode()
+                })
+            )

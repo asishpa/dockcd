@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'accounts',
     'drf_spectacular',
     'channels',
+    'containers',
 ]
 
 MIDDLEWARE = [
