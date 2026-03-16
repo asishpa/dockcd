@@ -17,3 +17,10 @@ class DeployPathExists(ApplicationError):
 
 class GitCloneFailed(ApplicationError):
     error_code = "GIT_CLONE_FAILED"
+
+class ContainerNotFound(ApplicationError):
+    error_code = "CONTAINER_NOT_FOUND"
+    status_code = 400
+class CommandNotAllowed(ApplicationError):
+    error_code = "COMMAND_NOT_ALLOWED"
+    status_code = 403

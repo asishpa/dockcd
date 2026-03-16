@@ -20,7 +20,7 @@ def validate_deploy_path(path):
 def clone_repo(repo_url, branch, deploy_path):
     if os.path.exists(deploy_path):
         raise ValueError("Deploy path already exists")
-
+    print(f"Cloning repository {repo_url} (branch: {branch}) into {deploy_path}")
     subprocess.run(
         ["git", "clone", repo_url, deploy_path],
         check=True

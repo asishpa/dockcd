@@ -7,4 +7,6 @@ psycopg2-binary
 python-dotenv
 docker
 djangorestframework-simplejwt
-drf-yasg
+drf-spectacular
+channels
+channels-Redis

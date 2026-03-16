@@ -5,6 +5,7 @@ import json
 from django.http import JsonResponse, HttpResponseForbidden
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+from drf_spectacular.utils import extend_schema
 
 from applications.models import Application
 from common.api_response import success_response
@@ -12,8 +13,8 @@ from common.permissions import IsAdmin
 from deployment.tasks import run_deployment
 from services.models import Service
 from deployment.models import Deployment
-from deployment.executor import LocalDeploymentExecutor
 from webhooks.models import GitHubWebhook
+from webhooks.serializers import CreateGitHubWebhookRequestSerializer, CreateGitHubWebhookResponseSerializer
 from webhooks.services import create_github_webhook
 from webhooks.utils import verify_github_signature
 from rest_framework.views import APIView
@@ -91,13 +92,19 @@ def github_webhook(request):
 class CreateGitHubWebhookView(APIView):
     permission_classes = [IsAdmin]
 
+    @extend_schema(
+        request=CreateGitHubWebhookRequestSerializer,
+        responses=CreateGitHubWebhookResponseSerializer
+    )
     def post(self, request):
 
-        application_id = request.data["application_id"]
-        secret = request.data["secret"]
+        serializer = CreateGitHubWebhookRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        application_id = serializer.validated_data["application_id"]
+        secret = serializer.validated_data["secret"]
 
         webhook = create_github_webhook(application_id, secret)
-
-        return success_response({
-            "webhook_id": str(webhook.id)
-        })
+        response_data = CreateGitHubWebhookResponseSerializer({
+            "webhook_id": webhook.id
+        }).data
+        return success_response(response_data)

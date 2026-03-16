@@ -14,3 +14,13 @@ class ApplicationRegistrationSerializer(serializers.Serializer):
                 "Deploy path must be inside /opt/dockcd"
             )
         return value
+    
+class ApplicationRegistrationResponseSerializer(serializers.Serializer):
+    application_id = serializers.UUIDField()
+
+class ApplicationServiceStatusViewSerializer(serializers.Serializer):
+    service_name = serializers.CharField()
+    status = serializers.CharField()
+    service_id = serializers.UUIDField()
+    container_count = serializers.IntegerField()
+    containers = serializers.ListField(child=serializers.DictField())

@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 
 import os
 from pathlib import Path
+from datetime import timedelta
 
 load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -30,7 +31,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['matless-verdie-facultatively.ngrok-free.dev','localhost','127.0.0.1']
 
-
+REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 # Application definition
 
 INSTALLED_APPS = [
@@ -46,7 +47,8 @@ INSTALLED_APPS = [
     'webhooks',
     'rest_framework',
     'accounts',
-    'drf_yasg'
+    'drf_spectacular',
+    'channels',
 ]
 
 MIDDLEWARE = [
@@ -140,16 +142,58 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+
 }
 
-CELERY_BROKER_URL = "redis://localhost:6379/0"
+CELERY_BROKER_URL = REDIS_URL
 
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 
-CELERY_RESULT_BACKEND = "redis://localhost:6379/0"
+CELERY_RESULT_BACKEND = REDIS_URL
 
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 
 AUTH_USER_MODEL = "accounts.User"
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [REDIS_URL],
+        },
+    }
+}
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Dockcd API",
+    "DESCRIPTION": "API documentation",
+    "VERSION": "1.0.0",
+}
+
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=3),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+}
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "simple": {
+            "format": "%(levelname)s %(name)s: %(message)s",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
+    },
+}
