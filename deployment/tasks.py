@@ -6,4 +6,5 @@ from .executor import LocalDeploymentExecutor
 def run_deployment(deployment_id):
     deployment = Deployment.objects.get(id=deployment_id)
     executor = LocalDeploymentExecutor(deployment)
+    print("Starting deployment executor for deployment id:", deployment_id)
     executor.run()

@@ -1,7 +1,6 @@
 from applications.models import Application
 from deployment.executor import LocalDeploymentExecutor
 from deployment.models import Deployment
-import services
 from .discover import clone_repo, auto_create_services
 from common.exceptions import (
     DeployPathInvalid,

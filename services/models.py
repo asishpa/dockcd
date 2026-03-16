@@ -36,3 +36,9 @@ class Service(models.Model):
 
     def __str__(self):
         return f"{self.application.name} :: {self.name}"
+class AllowedCommands(models.Model):
+    command = models.CharField(max_length=255, unique=True)
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    def __str__(self):
+        return self.command
