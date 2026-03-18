@@ -10,3 +10,4 @@ djangorestframework-simplejwt
 drf-spectacular
 channels
 channels-Redis
+django-cors-headers

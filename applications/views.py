@@ -1,6 +1,6 @@
 from drf_spectacular.utils import extend_schema
 from rest_framework.views import APIView
-from applications.serializers import ApplicationRegistrationSerializer,ApplicationRegistrationResponseSerializer,ApplicationServiceStatusViewSerializer
+from applications.serializers import  ApplicationListResponseSerializer, ApplicationRegistrationSerializer,ApplicationRegistrationResponseSerializer,ApplicationServiceStatusViewSerializer
 from common.permissions import IsAdmin
 from .service import register_application_service
 from common.api_response import success_response,error_response
@@ -27,6 +27,7 @@ class RegisterApplicationView(APIView):
         )
         response_data = ApplicationRegistrationResponseSerializer({
             "application_id": application.id
+        ,   "name": application.name
         }).data
         return success_response(response_data)
     
@@ -46,3 +47,14 @@ class ApplicationServiceStatusView(APIView):
         services = get_application_services_status(application)
         response_data = ApplicationServiceStatusViewSerializer(services, many=True).data
         return success_response(response_data)
+
+class ApplicationListView(APIView):
+    permission_classes = [IsAutheneticatedUser]
+
+    @extend_schema(
+         responses=ApplicationListResponseSerializer(many=True)
+     )
+    def get(self, request):
+         applications = Application.objects.all()
+         response_data = ApplicationListResponseSerializer(applications, many=True).data
+         return success_response(response_data)

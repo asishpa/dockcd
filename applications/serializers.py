@@ -17,6 +17,7 @@ class ApplicationRegistrationSerializer(serializers.Serializer):
     
 class ApplicationRegistrationResponseSerializer(serializers.Serializer):
     application_id = serializers.UUIDField()
+    name = serializers.CharField(max_length=100)
 
 class ApplicationServiceStatusViewSerializer(serializers.Serializer):
     service_name = serializers.CharField()
@@ -24,3 +25,10 @@ class ApplicationServiceStatusViewSerializer(serializers.Serializer):
     service_id = serializers.UUIDField()
     container_count = serializers.IntegerField()
     containers = serializers.ListField(child=serializers.DictField())
+
+class ApplicationListResponseSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    branch = serializers.CharField()
+    created_at = serializers.DateTimeField()
+    deploy_path = serializers.CharField()
