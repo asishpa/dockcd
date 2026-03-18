@@ -24,3 +24,11 @@ class ContainerNotFound(ApplicationError):
 class CommandNotAllowed(ApplicationError):
     error_code = "COMMAND_NOT_ALLOWED"
     status_code = 403
+
+class ContainerStartFailed(ApplicationError):
+    error_code = "CONTAINER_START_FAILED"
+    status_code = 500
+
+class ContainerStopFailed(ApplicationError):
+    error_code = "CONTAINER_STOP_FAILED"
+    status_code = 500

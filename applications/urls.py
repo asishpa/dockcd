@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import ApplicationServiceStatusView, RegisterApplicationView
+from .views import ApplicationListView, ApplicationServiceStatusView, RegisterApplicationView
 
 urlpatterns = [
     path(
@@ -11,5 +11,6 @@ urlpatterns = [
         "<uuid:application_id>/services/status/",
         ApplicationServiceStatusView.as_view(),
         name="application-service-status"
-    )
+    ),
+    path("", ApplicationListView.as_view(), name="application-list")
 ]

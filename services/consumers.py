@@ -14,7 +14,7 @@ class ServiceExecConsumer(AsyncWebsocketConsumer):
             await self.close()
             return
         await self.accept()
-    async def recieve(self,text_data):
+    async def receive(self,text_data):
 
         data = json.loads(text_data)
         container_name = data.get("container_name")
