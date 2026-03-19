@@ -1,0 +1,5 @@
+postgres_data
+*.log
+__pycache__
+.git
+.env

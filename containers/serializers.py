@@ -1,23 +1,31 @@
 from rest_framework import serializers
 
 
-class ContainerStartRequestSerializer(serializers.Serializer):
-    container_id = serializers.CharField(max_length=255)    
-
-class ContainerStartResponseSerializer(serializers.Serializer):
+class ContainerBaseSerializer(serializers.Serializer):
     container_id = serializers.CharField(max_length=255)
+
+class ContainerOperationResponseSerializer(ContainerBaseSerializer):
     message = serializers.CharField(max_length=255)
+class ContainerStartRequestSerializer(ContainerBaseSerializer):
+    pass
 
-class ContainerStopResponseSerializer(serializers.Serializer):
-    container_id = serializers.CharField(max_length=255)
-    message = serializers.CharField(max_length=255)
+class ContainerStartResponseSerializer(ContainerOperationResponseSerializer):
+    pass
+class ContainerStopResponseSerializer(ContainerOperationResponseSerializer):
+    pass
+class ContainerStopRequestSerializer(ContainerBaseSerializer):
+    pass
 
-class ContainerStopRequestSerializer(serializers.Serializer):
-    container_id = serializers.CharField(max_length=255)
+class ContainerRestartRequestSerializer(ContainerBaseSerializer):
+    pass
+class ContainerRestartResponseSerializer(ContainerOperationResponseSerializer):
+    pass
 
-class ContanerRestartRequestSerializer(serializers.Serializer):
-    container_id = serializers.CharField(max_length=255)
-
-class ContainerLogsRequestSerializer(serializers.Serializer):
-    container_id = serializers.CharField(max_length=255)
+class ContainerLogsRequestSerializer(ContainerBaseSerializer):
     tail = serializers.IntegerField(required=False, default=200)
+
+class ContainerLogsResponseSerializer(serializers.Serializer):
+    container_id = serializers.CharField(max_length=255)
+    logs = serializers.ListField(
+        child=serializers.CharField()
+    )

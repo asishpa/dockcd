@@ -11,3 +11,4 @@ drf-spectacular
 channels
 channels-Redis
 django-cors-headers
+gunicorn
