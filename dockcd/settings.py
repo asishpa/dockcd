@@ -15,7 +15,13 @@ import os
 from pathlib import Path
 from datetime import timedelta
 
-load_dotenv()
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+
+if ENVIRONMENT == "production":
+    load_dotenv(".env.prod")
+else:
+    load_dotenv(".env")
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -203,3 +209,4 @@ LOGGING = {
 }
 
 CORS_ALLOW_ALL_ORIGINS = True
+

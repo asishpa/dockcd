@@ -4,7 +4,7 @@ from common.docker_client import docker_client
 from common.api_response import success_response,error_response
 from common.permissions import IsAutheneticatedUser
 from containers.container_actions import start_container, stop_container, restart_container
-from containers.serializers import ContainerStartResponseSerializer, ContainerStartRequestSerializer,ContainerStopRequestSerializer,ContainerStopResponseSerializer
+from containers.serializers import ContainerLogsRequestSerializer, ContainerLogsResponseSerializer, ContainerRestartRequestSerializer, ContainerStartResponseSerializer, ContainerStartRequestSerializer,ContainerStopRequestSerializer,ContainerStopResponseSerializer,ContainerRestartResponseSerializer
 from services.docker_utils import get_service_container
 from services.models import Service
 from drf_spectacular.utils import extend_schema
@@ -12,6 +12,11 @@ from drf_spectacular.utils import extend_schema
 class ContainerLogsView(APIView):
     permission_classes = [IsAutheneticatedUser]
 
+    @extend_schema(
+            request= ContainerLogsRequestSerializer,
+            responses= ContainerLogsResponseSerializer
+            
+    )
     def get(self, request, container_id, *args, **kwargs):
         tail = request.GET.get("tail", 200)
         try:
@@ -49,8 +54,14 @@ class ContainerStopView(APIView):
 
 
 class ContainerRestartView(APIView):
+
+
     permission_classes = [IsAutheneticatedUser]
 
+    @extend_schema(
+        request = ContainerRestartRequestSerializer,
+        responses = ContainerRestartResponseSerializer
+    )
     def post(self, request, container_id):
         restart_container(container_id)
         return success_response({"message": f"Container {container_id} restarted successfully"})
