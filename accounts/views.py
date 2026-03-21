@@ -2,11 +2,12 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
-from accounts.serializers import BootstrapAdminRequestSerializer, BootstrapAdminResponseSerializer, LoginRequestSerializer, SetupStatusResponseSerializer, SetupStatusResponseSerializer
+from accounts.serializers import BootstrapAdminRequestSerializer, BootstrapAdminResponseSerializer, CreateAccountRequestSerializer, CreateAccountResponseSerializer, DeactivateAccountResponseSerializer, LoginRequestSerializer, SetupStatusResponseSerializer, SetupStatusResponseSerializer, UserListResponseSerializer, UserStatusRequestSerializer, MessageResponseSerializer
 from common.api_response import error_response,success_response
 from accounts.services import admin_exists
 from accounts.models import User
 from rest_framework.views import APIView
+from common.permissions import IsAdminUser
 from accounts.serializers import LoginResponseSerializer,LoginRequestSerializer
 from drf_spectacular.utils import extend_schema
 # Create your views here.
@@ -71,3 +72,72 @@ class SetupStatusView(APIView):
             "admin_exists": admin_exists()
         }).data 
         return success_response(response_data)
+
+class CreateAccountView(APIView):
+    permission_classes = [IsAdminUser]
+
+    @extend_schema(
+        request = CreateAccountRequestSerializer,
+        responses= CreateAccountResponseSerializer
+    )
+    def post(self, request):
+        serializer = CreateAccountRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = User.objects.create_user(
+            username=serializer.validated_data["username"],
+            password=serializer.validated_data["password"],
+            role=serializer.validated_data["role"]
+        )
+        response_data = {
+            "message": "Account created successfully",
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "role": user.role
+            }
+        }
+
+        return success_response(response_data)
+
+class UserListView(APIView):
+    permission_classes = [IsAdminUser]
+
+    @extend_schema(
+        responses=UserListResponseSerializer(many=True)
+    )   
+    def get(self, request):
+        users = User.objects.all()
+        user_data = [{"id": user.id, "username": user.username, "role": user.role, "is_active": user.is_active} for user in users]
+        return success_response(user_data)
+
+class DeactivateUserView(APIView):
+    permission_classes = [IsAdminUser]
+
+    @extend_schema(
+        request=UserStatusRequestSerializer,
+        responses=MessageResponseSerializer
+    )   
+    def post(self, request, user_id):
+        try:
+            user = User.objects.get(id=user_id)
+            user.is_active = False
+            user.save()
+            return success_response({"message": "User deactivated successfully"})
+        except User.DoesNotExist:
+            return error_response("USER_NOT_FOUND", "User not found", status=400)
+
+class ActivateUserView(APIView):
+    permission_classes = [IsAdminUser]
+
+    @extend_schema(
+        request=UserStatusRequestSerializer,
+        responses=MessageResponseSerializer
+    )   
+    def post(self, request, user_id):
+        try:
+            user = User.objects.get(id=user_id)
+            user.is_active = True
+            user.save()
+            return success_response({"message": "User activated successfully"})
+        except User.DoesNotExist:
+            return error_response("USER_NOT_FOUND", "User not found", status=400)
