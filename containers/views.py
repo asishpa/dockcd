@@ -1,13 +1,15 @@
 from django.shortcuts import render
+from drf_spectacular.types import OpenApiTypes
 from rest_framework.views import APIView
 from common.docker_client import docker_client
 from common.api_response import success_response,error_response
 from common.permissions import IsAutheneticatedUser
 from containers.container_actions import start_container, stop_container, restart_container
-from containers.serializers import ContainerLogsRequestSerializer, ContainerLogsResponseSerializer, ContainerRestartRequestSerializer, ContainerStartResponseSerializer, ContainerStartRequestSerializer,ContainerStopRequestSerializer,ContainerStopResponseSerializer,ContainerRestartResponseSerializer
+from containers.serializers import ContainerListResponseSerializer, ContainerLogsRequestSerializer, ContainerLogsResponseSerializer, ContainerRestartRequestSerializer, ContainerStartResponseSerializer, ContainerStartRequestSerializer,ContainerStopRequestSerializer,ContainerStopResponseSerializer,ContainerRestartResponseSerializer
 from services.docker_utils import get_service_container
 from services.models import Service
-from drf_spectacular.utils import extend_schema
+from applications.models import Application
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 # Create your views here.
 class ContainerLogsView(APIView):
     permission_classes = [IsAutheneticatedUser]
@@ -65,3 +67,39 @@ class ContainerRestartView(APIView):
     def post(self, request, container_id):
         restart_container(container_id)
         return success_response({"message": f"Container {container_id} restarted successfully"})
+
+class ContainerListView(APIView):
+    permission_classes = [IsAutheneticatedUser]
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                name="application_id",
+                type=OpenApiTypes.UUID,
+                location=OpenApiParameter.QUERY,
+                required=True,
+            )
+        ],
+        responses=ContainerListResponseSerializer
+    )     
+    def get(self, request):
+        application_id = request.query_params.get("application_id")
+        application = Application.objects.get(id=application_id)
+        deploy_path = application.deploy_path.rstrip("/")
+
+        containers = docker_client.containers.list(all=True)
+
+        container_data = []
+
+        for c in containers:
+            labels = c.labels
+            working_dir = labels.get("com.docker.compose.project.working_dir", "")
+
+            if working_dir and working_dir.startswith(deploy_path):
+                container_data.append({
+                    "id": c.short_id.split(":")[-1],
+                    "name": c.name,
+                    "status": c.status
+                })
+
+        return success_response({"containers": container_data})

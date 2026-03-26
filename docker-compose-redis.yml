@@ -1,14 +1,9 @@
-version: "3.8"
-
 services:
   redis:
-    image: redis:7
+    image: redis
     container_name: redis
     ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
-    command: redis-server --appendonly yes
-
-volumes:
-  redis-data:
+      - 6379:6379
+    environment:
+      - REDIS_PASSWORD=buddy123
+      - REDIS_DISABLE_COMMANDS=FLUSHDB,FLUSHALL

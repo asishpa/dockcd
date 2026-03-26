@@ -1,13 +1,11 @@
-from django.http import JsonResponse
-from django.shortcuts import render
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
-from accounts.serializers import BootstrapAdminRequestSerializer, BootstrapAdminResponseSerializer, CreateAccountRequestSerializer, CreateAccountResponseSerializer, DeactivateAccountResponseSerializer, LoginRequestSerializer, SetupStatusResponseSerializer, SetupStatusResponseSerializer, UserListResponseSerializer, UserStatusRequestSerializer, MessageResponseSerializer
+from accounts.serializers import BootstrapAdminRequestSerializer, BootstrapAdminResponseSerializer, CreateAccountRequestSerializer, CreateAccountResponseSerializer, LoginRequestSerializer, SetupStatusResponseSerializer, SetupStatusResponseSerializer, UserListResponseSerializer, UserStatusRequestSerializer, MessageResponseSerializer
 from common.api_response import error_response,success_response
 from accounts.services import admin_exists
 from accounts.models import User
 from rest_framework.views import APIView
-from common.permissions import IsAdminUser
+from common.permissions import IsAdmin
 from accounts.serializers import LoginResponseSerializer,LoginRequestSerializer
 from drf_spectacular.utils import extend_schema
 # Create your views here.
@@ -74,7 +72,7 @@ class SetupStatusView(APIView):
         return success_response(response_data)
 
 class CreateAccountView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdmin]
 
     @extend_schema(
         request = CreateAccountRequestSerializer,
@@ -100,7 +98,7 @@ class CreateAccountView(APIView):
         return success_response(response_data)
 
 class UserListView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdmin]
 
     @extend_schema(
         responses=UserListResponseSerializer(many=True)
@@ -111,7 +109,7 @@ class UserListView(APIView):
         return success_response(user_data)
 
 class DeactivateUserView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdmin]
 
     @extend_schema(
         request=UserStatusRequestSerializer,
@@ -127,7 +125,7 @@ class DeactivateUserView(APIView):
             return error_response("USER_NOT_FOUND", "User not found", status=400)
 
 class ActivateUserView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdmin]
 
     @extend_schema(
         request=UserStatusRequestSerializer,

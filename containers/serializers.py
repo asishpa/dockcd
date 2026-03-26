@@ -29,3 +29,10 @@ class ContainerLogsResponseSerializer(serializers.Serializer):
     logs = serializers.ListField(
         child=serializers.CharField()
     )
+
+
+
+class ContainerListResponseSerializer(serializers.Serializer):
+    containers = serializers.ListField(
+        child=serializers.DictField()
+    )

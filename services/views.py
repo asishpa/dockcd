@@ -9,7 +9,8 @@ from services.docker_utils import get_service_container
 from services.models import Service
 from services.serializers import ServiceActionRequestSerializer, ServiceContainersViewResponseSerializer, ServiceExecViewRequestSerializer, ServiceExecViewResponseSerializer, ServiceStatusViewResponseSerializer, ServiceActionResponseSerializer
 from services.services import get_service_status, restart_service, start_service, stop_service
-from deployment.exec_service import validate_command, execute_command
+from services.command_service import validate_command
+from deployment.exec_service import execute_command
 from common.exceptions import CommandNotAllowed, ContainerNotFound
 # Create your views here.
 class ServiceStatusView(APIView):
