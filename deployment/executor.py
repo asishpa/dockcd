@@ -5,29 +5,44 @@ from django.db.models.functions import Concat
 import subprocess
 import uuid
 from django.utils import timezone
-from .models import Deployment
+from .models import Deployment, ServiceDeployment
 from common.redis_client import redis_client
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
 logger = logging.getLogger(__name__)
 class LocalDeploymentExecutor:
-    def __init__(self, deployment: Deployment):
-        self.deployment = deployment
-        self.service = deployment.service
+    def __init__(self, service_deployment):
+        self.service_deployment = service_deployment
+        self.deployment = service_deployment.deployment
+        self.service = service_deployment.service
         self.application = self.service.application
         self.lock_token  = str(uuid.uuid4())
         # optimize for log write to db
         self._log_buffer = []
         self._buffer_limit = 20
+
+    def _event_log_line(self, message: str) -> str:
+        timestamp = timezone.now().isoformat()
+        return f"[{timestamp}] [service:{self.service.name}] {message}\n"
+
+    def _append_deployment_log(self, message: str):
+        log_line = self._event_log_line(message)
+        Deployment.objects.filter(id=self.deployment.id).update(
+            logs=Concat(F("logs"), Value(log_line))
+        )
+        self.deployment.logs = f"{self.deployment.logs}{log_line}"
         
 
     def run(self):
         if not self._acquire_lock():
-            logger.info(f"Deployment already in progress for service {self.service.name}. Marking this deployment as queued.")
-            self.deployment.status = Deployment.STATUS_QUEUED
-            self.deployment.logs += "\nAnother deployment is currently in progress. This deployment has been queued and will run once the current deployment finishes."
-            self.deployment.save(update_fields=["status", "logs"])
+            logger.info(f"Deployment already in progress for service {self.service.name}. Marking this service deployment as queued.")
+            self.service_deployment.status = ServiceDeployment.STATUS_QUEUEUED
+            self.service_deployment.save(update_fields=["status"])
+            self._append_deployment_log(
+                "Another deployment is in progress. This service deployment has been queued and will run when the current deployment finishes."
+            )
+            self._update_parent_status()
             return
 
         try:
@@ -48,21 +63,52 @@ class LocalDeploymentExecutor:
     # --------------------
 
     def _mark_running(self):
-        self.deployment.status = Deployment.STATUS_RUNNING
-        self.deployment.started_at = timezone.now()
-        self.deployment.save(update_fields=["status", "started_at"])
+        self.service_deployment.status = Deployment.STATUS_RUNNING
+        self.service_deployment.started_at = timezone.now()
+        self.service_deployment.save(update_fields=["status", "started_at"])
+        self._append_deployment_log("Service deployment started.")
+        self._update_parent_status()
+        
 
     def _mark_success(self):
-        self.deployment.status = Deployment.STATUS_SUCCESS
-        self.deployment.finished_at = timezone.now()
-        self.deployment.save(update_fields=["status", "finished_at"])
+        self.service_deployment.status = Deployment.STATUS_SUCCESS
+        self.service_deployment.finished_at = timezone.now()
+        self.service_deployment.save(update_fields=["status", "finished_at"])
+        self._append_deployment_log("Service deployment finished successfully.")
+        self._update_parent_status()
 
     def _mark_failed(self, logs: str):
-        self.deployment.status = Deployment.STATUS_FAILED
-        self.deployment.logs = logs
-        self.deployment.finished_at = timezone.now()
-        self.deployment.save(update_fields=["status", "logs", "finished_at"])
+        self.service_deployment.status = Deployment.STATUS_FAILED
+        self.service_deployment.finished_at = timezone.now()
+        self.service_deployment.save(update_fields=["status", "finished_at"])
+        self._append_deployment_log(f"Service deployment failed: {logs}")
+        self._update_parent_status()
 
+    def _update_parent_status(self):
+
+        statuses = list(self.deployment.service_deployments.values_list("status", flat=True))
+
+        if all(s == "success" for s in statuses):
+            self.deployment.status = "success"
+            self.deployment.finished_at = timezone.now()
+
+        elif any(s == "failed" for s in statuses):
+            self.deployment.status = "failed"
+            self.deployment.finished_at = timezone.now()
+
+        elif any(s == "running" for s in statuses):
+            self.deployment.status = "running"
+            self.deployment.finished_at = None
+
+        elif any(s == "queued" for s in statuses):
+            self.deployment.status = "queued"
+            self.deployment.finished_at = None
+
+        else:
+            self.deployment.status = "pending"
+            self.deployment.finished_at = None
+
+        self.deployment.save(update_fields=["status", "finished_at"])
     # --------------------
     # Git operations
     # --------------------
@@ -159,28 +205,37 @@ class LocalDeploymentExecutor:
 
     def _acquire_lock(self):
         lock_key = f"deploy_lock:{self.service.id}"
-        acquired = redis_client.set(lock_key,self.lock_token, nx=True, ex=600)
+        acquired = redis_client.set(lock_key,self.lock_token, nx=True, ex=120)
         return acquired
     
     def _release_lock(self):
         lock_key = f"deploy_lock:{self.service.id}"
         token = redis_client.get(lock_key)
+        if isinstance(token, bytes):
+            token = token.decode("utf-8")
         if token == self.lock_token:
             redis_client.delete(lock_key)
+
     def _trigger_next_deployment(self):
         #this is intenetional to break circular import as run_deployment also imports LocalDeploymentExecutor to run the deployment task
         from .tasks import run_deployment
         queued = (
-            Deployment.objects
-            .filter(service=self.service, status=Deployment.STATUS_QUEUED)
-        
-        .order_by("created_at")
+            ServiceDeployment.objects
+            .filter(service=self.service, status=ServiceDeployment.STATUS_QUEUEUED)
+            .exclude(id=self.service_deployment.id)
+            .order_by("deployment__created_at", "id")
         )
-        next_deployment = queued.first()
-        if not next_deployment:
+        next_service_deployment = queued.first()
+        if not next_service_deployment:
             return
-        queued.exclude(id=next_deployment.id).update(status=Deployment.STATUS_SUPERSEDED)
-        run_deployment.delay(str(next_deployment.id))
+
+        Deployment.objects.filter(id=next_service_deployment.deployment_id).update(
+            logs=Concat(
+                F("logs"),
+                Value(self._event_log_line("Queued service deployment has been picked up and will start now."))
+            )
+        )
+        run_deployment.delay(str(next_service_deployment.id))
     
 
     def _flush_log(self):

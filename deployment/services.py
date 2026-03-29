@@ -1,20 +1,17 @@
-from deployment.models import Deployment
+from deployment.models import Deployment, ServiceDeployment
 from deployment.executor import LocalDeploymentExecutor
 from deployment.tasks import run_deployment
 
 def trigger_application_deployment(application):
-    services = application.services.all()
-    print(f"Found {len(services)} services for application id {application.id}.")
-    deployments = []
-    for service in services:
-        deployment = Deployment.objects.create(service=service)
-
-        running = Deployment.objects.filter(
+    deployment = Deployment.objects.create(
+        application=application,
+        status = Deployment.STATUS_PENDING
+        )
+    for service in application.services.all():
+        sd = ServiceDeployment.objects.create(
+            deployment=deployment,
             service=service,
-            status=Deployment.STATUS_RUNNING
-        ).exists()
-
-        if not running:
-            run_deployment.delay(str(deployment.id))
-        deployments.append(deployment)
-    return deployments
+            status=ServiceDeployment.STATUS_PENDING
+        )
+        run_deployment.delay(str(sd.id))
+    return deployment

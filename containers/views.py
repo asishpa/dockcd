@@ -10,25 +10,48 @@ from services.docker_utils import get_service_container
 from services.models import Service
 from applications.models import Application
 from drf_spectacular.utils import OpenApiParameter, extend_schema
+from common.permissions import IsAutheneticatedUser
+
 # Create your views here.
 class ContainerLogsView(APIView):
     permission_classes = [IsAutheneticatedUser]
 
     @extend_schema(
-            request= ContainerLogsRequestSerializer,
-            responses= ContainerLogsResponseSerializer
-            
-    )
+    parameters=[
+        OpenApiParameter(
+            name="container_id",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.PATH,
+            description="Docker container ID",
+        ),
+        OpenApiParameter(
+            name="tail",
+            type=OpenApiTypes.INT,
+            location=OpenApiParameter.QUERY,
+            description="Number of log lines to return",
+            required=False,
+            default=200,
+        ),
+    ],
+    responses=ContainerLogsResponseSerializer
+)
     def get(self, request, container_id, *args, **kwargs):
-        tail = request.GET.get("tail", 200)
+        try:
+            tail = int(request.GET.get("tail", 200))
+        except ValueError:
+            return error_response("INVALID_TAIL", "tail must be an integer", status=400)
+
         try:
             container = docker_client.containers.get(container_id)
         except docker_client.errors.NotFound:
-            return error_response("CONTAINER_NOT_FOUND","Container not found", status=400)
+            return error_response("CONTAINER_NOT_FOUND", "Container not found", status=400)
+
         logs = container.logs(tail=tail).decode("utf-8").splitlines()
+
         return success_response({
             "container_id": container_id,
-            "logs": logs})
+            "logs": logs
+        })
 
 
 class ContainerStartView(APIView):

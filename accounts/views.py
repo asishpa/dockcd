@@ -6,7 +6,7 @@ from accounts.services import admin_exists
 from accounts.models import User
 from rest_framework.views import APIView
 from common.permissions import IsAdmin
-from accounts.serializers import LoginResponseSerializer,LoginRequestSerializer
+from accounts.serializers import LoginResponseSerializer,LoginRequestSerializer,AdminResetPasswordSerializer,MessageResponseSerializer
 from drf_spectacular.utils import extend_schema
 # Create your views here.
 class LoginView(APIView):
@@ -118,6 +118,12 @@ class DeactivateUserView(APIView):
     def post(self, request, user_id):
         try:
             user = User.objects.get(id=user_id)
+            if request.user.id == user.id:
+                return error_response(
+                    "INVALID_ACTION",
+                    "You cannot deactivate your own account",
+                    status=400
+                )
             user.is_active = False
             user.save()
             return success_response({"message": "User deactivated successfully"})
@@ -134,8 +140,38 @@ class ActivateUserView(APIView):
     def post(self, request, user_id):
         try:
             user = User.objects.get(id=user_id)
+            if request.user.id == user.id:
+                return error_response(
+                    "INVALID_ACTION",
+                    "You cannot activate your own account",
+                    status=400
+                )
             user.is_active = True
             user.save()
             return success_response({"message": "User activated successfully"})
         except User.DoesNotExist:
             return error_response("USER_NOT_FOUND", "User not found", status=400)
+
+class AdminResetPasswordView(APIView):
+    permission_classes = [IsAdmin]
+
+    @extend_schema(
+        request=AdminResetPasswordSerializer,
+        responses=MessageResponseSerializer
+    )
+    def post(self, request, user_id):
+        serializer = AdminResetPasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            user = User.objects.get(id=user_id)
+            
+        except User.DoesNotExist:
+            return error_response("USER_NOT_FOUND", "User not found", status=400)
+
+        user.set_password(serializer.validated_data["new_password"])
+        user.save()
+
+        return success_response({
+            "message": "Password reset successfully"
+        })

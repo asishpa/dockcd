@@ -9,6 +9,7 @@ class DeploymentConsumer(AsyncWebsocketConsumer):
             self.channel_name
         )
         await self.accept()
+
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(
             self.group_name,

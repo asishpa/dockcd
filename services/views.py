@@ -1,3 +1,5 @@
+from http.client import responses
+
 from django.shortcuts import render
 from drf_spectacular.utils import extend_schema
 from rest_framework.views import APIView
@@ -6,8 +8,8 @@ from common.api_response import success_response,error_response
 from common.permissions import IsAdminOrDeveloper, IsAutheneticatedUser, IsAdmin
 from services.command_service import validate_command
 from services.docker_utils import get_service_container
-from services.models import Service
-from services.serializers import ServiceActionRequestSerializer, ServiceContainersViewResponseSerializer, ServiceExecViewRequestSerializer, ServiceExecViewResponseSerializer, ServiceStatusViewResponseSerializer, ServiceActionResponseSerializer
+from services.models import AllowedCommands, Service
+from services.serializers import AllowedCommandCreateRequestSerializer, AllowedCommandResponseSerializer, ServiceActionRequestSerializer, ServiceContainersViewResponseSerializer, ServiceExecViewRequestSerializer, ServiceExecViewResponseSerializer, ServiceListBasicResponseSerializer, ServiceListRequestSerializer, ServiceListResponseSerializer, ServiceStatusViewResponseSerializer, ServiceActionResponseSerializer
 from services.services import get_service_status, restart_service, start_service, stop_service
 from services.command_service import validate_command
 from deployment.exec_service import execute_command
@@ -133,3 +135,63 @@ class ContainerLogsView(APIView):
         return success_response({
             "container_name": container_name,
             "logs": logs})
+class ServiceListView(APIView):
+    permission_classes = [IsAutheneticatedUser]
+
+    @extend_schema(
+        parameters=[ServiceListRequestSerializer],
+        responses=ServiceListResponseSerializer(many=True)
+    )
+    def get(self,request):
+        serializer = ServiceListRequestSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+
+        application_id = serializer.validated_data["application_id"]
+        basic = serializer.validated_data.get("basic", False)
+        services = Service.objects.filter(application_id=application_id)
+
+        if basic:
+            response_data = ServiceListBasicResponseSerializer(services, many=True).data
+            return success_response(response_data)
+
+        response_data = ServiceListResponseSerializer(services, many=True).data
+        return success_response(response_data)
+
+
+class AllowedCommandListCreateView(APIView):
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAdminOrDeveloper()]
+        return [IsAdmin()]
+
+    @extend_schema(
+        responses=AllowedCommandResponseSerializer(many=True),
+    )
+    def get(self, request):
+        commands = AllowedCommands.objects.all().order_by("command")
+        response_data = AllowedCommandResponseSerializer(commands, many=True).data
+        return success_response(response_data)
+
+    @extend_schema(
+        request=AllowedCommandCreateRequestSerializer,
+        responses=AllowedCommandResponseSerializer,
+    )
+    def post(self, request):
+        serializer = AllowedCommandCreateRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        command = serializer.validated_data["command"].strip()
+        description = serializer.validated_data.get("description", "")
+
+        if not command:
+            return error_response("INVALID_REQUEST", "command is required", status=400)
+
+        allowed_command, created = AllowedCommands.objects.get_or_create(
+            command=command,
+            defaults={"description": description},
+        )
+        if not created:
+            return error_response("COMMAND_EXISTS", f"Command '{command}' already exists.", status=400)
+
+        response_data = AllowedCommandResponseSerializer(allowed_command).data
+        return success_response(response_data)

@@ -2,9 +2,11 @@ from common.docker_client import docker_client
 import logging
 logger = logging.getLogger(__name__)
 
-def get_application_services_status(application):
+def get_application_services_status(application, service_id=None):
 
     services = application.services.all()
+    if service_id:
+        services = services.filter(id=service_id)
     containers = docker_client.containers.list(all=True)
 
     service_conatiner_map = {}

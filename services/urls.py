@@ -1,7 +1,26 @@
 from django.urls import path
-from services.views import ContainerLogsView, RestartServiceView, ServiceContainersView, ServiceStatusView, StartServiceView, StopServiceView
+from services.views import (
+    AllowedCommandListCreateView,
+    ContainerLogsView,
+    RestartServiceView,
+    ServiceContainersView,
+    ServiceListView,
+    ServiceStatusView,
+    StartServiceView,
+    StopServiceView,
+)
 
 urlpatterns = [
+    path(
+        "allowed-commands/",
+        AllowedCommandListCreateView.as_view(),
+        name="allowed-command-create"
+    ),
+    path(
+        "",
+        ServiceListView.as_view(),
+        name="service-list"
+    ),
     
     path(
         "<uuid:service_id>/status/",
@@ -32,6 +51,5 @@ urlpatterns = [
         "containers/<str:container_name>/logs/",
         ContainerLogsView.as_view(),
         name="container-logs"
-    )
-
+    ),
 ]

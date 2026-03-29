@@ -8,14 +8,19 @@ from django.views.decorators.http import require_POST
 from drf_spectacular.utils import extend_schema
 
 from applications.models import Application
-from common.api_response import success_response
+from common.api_response import success_response, error_response
 from common.permissions import IsAdmin
 from deployment.tasks import run_deployment
 from services.models import Service
 from deployment.models import Deployment
 from webhooks.models import GitHubWebhook
-from webhooks.serializers import CreateGitHubWebhookRequestSerializer, CreateGitHubWebhookResponseSerializer
-from webhooks.services import create_github_webhook
+from webhooks.serializers import (
+    CreateGitHubWebhookRequestSerializer,
+    CreateGitHubWebhookResponseSerializer,
+    EditGitHubWebhookSecretRequestSerializer,
+    EditGitHubWebhookSecretResponseSerializer,
+)
+from webhooks.services import create_github_webhook, edit_github_webhook_secret
 from webhooks.utils import verify_github_signature
 from rest_framework.views import APIView
 from webhooks.utils import is_duplicate_event
@@ -105,6 +110,35 @@ class CreateGitHubWebhookView(APIView):
 
         webhook = create_github_webhook(application_id, secret)
         response_data = CreateGitHubWebhookResponseSerializer({
+            "webhook_id": webhook.id
+        }).data
+        return success_response(response_data)
+
+
+class EditGitHubWebhookSecretView(APIView):
+    permission_classes = [IsAdmin]
+
+    @extend_schema(
+        request=EditGitHubWebhookSecretRequestSerializer,
+        responses=EditGitHubWebhookSecretResponseSerializer
+    )
+    def patch(self, request):
+        serializer = EditGitHubWebhookSecretRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        application_id = serializer.validated_data["application_id"]
+        secret = serializer.validated_data["secret"]
+
+        try:
+            webhook = edit_github_webhook_secret(application_id, secret)
+        except GitHubWebhook.DoesNotExist:
+            return error_response(
+                "GITHUB_WEBHOOK_NOT_FOUND",
+                "GitHub webhook does not exist for this application",
+                status=404
+            )
+
+        response_data = EditGitHubWebhookSecretResponseSerializer({
             "webhook_id": webhook.id
         }).data
         return success_response(response_data)

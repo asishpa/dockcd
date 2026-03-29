@@ -32,3 +32,7 @@ class ApplicationListResponseSerializer(serializers.Serializer):
     branch = serializers.CharField()
     created_at = serializers.DateTimeField()
     deploy_path = serializers.CharField()
+    has_webhook = serializers.SerializerMethodField()
+
+    def get_has_webhook(self, obj):
+        return hasattr(obj, "github_webhook")

@@ -22,5 +22,35 @@ class ServiceContainersViewResponseSerializer(serializers.Serializer):
     containers = serializers.ListField(
         child=serializers.CharField()
     )
+class ServiceListRequestSerializer(serializers.Serializer):
+    application_id = serializers.UUIDField()
+    basic = serializers.BooleanField(required=False, default=False)
 
+
+class ServiceListBasicResponseSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+
+
+class ServiceListResponseSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    application_id = serializers.UUIDField(source="application.id")
+    compose_file_path = serializers.CharField()
+    deploy_path = serializers.CharField()
+    auto_deploy = serializers.BooleanField()
+    created_at = serializers.DateTimeField()
+    updated_at = serializers.DateTimeField()
+
+
+class AllowedCommandCreateRequestSerializer(serializers.Serializer):
+    command = serializers.CharField(max_length=255)
+    description = serializers.CharField(required=False, allow_blank=True)
+
+
+class AllowedCommandResponseSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    command = serializers.CharField()
+    description = serializers.CharField(allow_blank=True)
+    created_at = serializers.DateTimeField()
     

@@ -40,3 +40,6 @@ class UserStatusRequestSerializer(serializers.Serializer):
 class MessageResponseSerializer(serializers.Serializer):
     message = serializers.CharField()
     
+
+class AdminResetPasswordSerializer(serializers.Serializer):
+    new_password = serializers.CharField(min_length=6)
