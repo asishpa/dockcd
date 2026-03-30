@@ -1,5 +1,6 @@
 ##here do not use common api response as these are not client facing apis and we want to return specific status for different scenarios like ignored, duplicate etc which is not error but also not success. We can use custom status codes or messages in the response to indicate these scenarios clearly.
 
+from asyncio.log import logger
 import json
 
 from django.http import JsonResponse, HttpResponseForbidden
@@ -12,7 +13,7 @@ from common.api_response import success_response, error_response
 from common.permissions import IsAdmin
 from deployment.tasks import run_deployment
 from services.models import Service
-from deployment.models import Deployment
+from deployment.models import Deployment, ServiceDeployment
 from webhooks.models import GitHubWebhook
 from webhooks.serializers import (
     CreateGitHubWebhookRequestSerializer,
@@ -71,7 +72,8 @@ def github_webhook(request):
             changed_files.add(f)
         for f in commit.get("removed", []):
             changed_files.add(f)
-
+    print(f"Received GitHub webhook for application {application.id}. Changed files: {changed_files}")
+    logger.info(f"Received GitHub webhook for application {application.id}. Changed files: {changed_files}")    
     triggered = []
 
     services = Service.objects.filter(
@@ -79,18 +81,35 @@ def github_webhook(request):
         auto_deploy=True
     )
 
+    matched_services = []
     for service in services:
         if service.compose_file_path in changed_files:
-            deployment = Deployment.objects.create(
-                service=service,
-                commit_sha=data.get("after", "")
-            )
-            run_deployment.delay(deployment.id)
-            triggered.append(str(deployment.id))
+            matched_services.append(service)
+
+    if not matched_services:
+        return JsonResponse({
+            "status": "processed",
+            "deployments": []
+        })
+
+    deployment = Deployment.objects.create(
+        application=application,
+        commit_sha=data.get("after", "")
+    )
+
+    for service in matched_services:
+        service_deployment = ServiceDeployment.objects.create(
+            deployment=deployment,
+            service=service,
+            status=ServiceDeployment.STATUS_PENDING,
+        )
+        run_deployment.delay(str(service_deployment.id))
+        triggered.append(str(service_deployment.id))
 
     return JsonResponse({
         "status": "processed",
-        "deployments": triggered
+        "deployment_id": str(deployment.id),
+        "service_deployments": triggered
     })
 
 

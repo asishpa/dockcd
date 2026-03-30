@@ -107,7 +107,8 @@ class ContainerLogsConsumer(AsyncWebsocketConsumer):
             container_streams[self.container_name] = {
                 "subscribers": set(),
                 "stop_event": threading.Event(),
-                "thread": None
+                "thread": None,
+                "loop": asyncio.get_running_loop(),
 
             }
         stream = container_streams[self.container_name]
@@ -115,7 +116,7 @@ class ContainerLogsConsumer(AsyncWebsocketConsumer):
         if stream["thread"] is None:
             stream["thread"] = threading.Thread(
                 target = self.start_log_stream,
-                args=(self.container_name),
+                args=(self.container_name,),
                 daemon=True
             )
             stream["thread"].start()
@@ -132,6 +133,7 @@ class ContainerLogsConsumer(AsyncWebsocketConsumer):
     def start_log_stream(self, container_name):
         stream = container_streams[container_name]
         stop_event = stream["stop_event"]
+        loop = stream["loop"]
         try:
             container = docker_client.containers.get(container_name)
 
@@ -143,12 +145,12 @@ class ContainerLogsConsumer(AsyncWebsocketConsumer):
                 for consumer in list(stream["subscribers"]):
                     asyncio.run_coroutine_threadsafe(
                         consumer.send(message),
-                        asyncio.get_event_loop()
+                        loop
                     )
         except Exception as e:
             error_msg = json.dumps({"error": str(e)})
             for consumer in list(stream["subscribers"]):
                 asyncio.run_coroutine_threadsafe(
                     consumer.send(error_msg),
-                    asyncio.get_event_loop()
+                    loop
                 )
