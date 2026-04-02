@@ -13,3 +13,4 @@ channels-Redis
 django-cors-headers
 gunicorn
 uvicorn[standard]    
+django-celery-beat

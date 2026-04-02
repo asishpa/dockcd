@@ -57,6 +57,8 @@ INSTALLED_APPS = [
     'channels',
     'containers',
     'corsheaders',
+    'alerts',
+    'django_celery_beat'
 ]
 
 MIDDLEWARE = [
@@ -209,4 +211,9 @@ LOGGING = {
 }
 
 CORS_ALLOW_ALL_ORIGINS = True
-
+CELERY_BEAT_SCHEDULE = {
+    "monitor-container-status": {
+        "task": "alerts.tasks.monitor_container_status",
+        "schedule": 30.0
+    }
+}

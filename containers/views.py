@@ -11,6 +11,7 @@ from services.models import Service
 from applications.models import Application
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from common.permissions import IsAutheneticatedUser
+from containers.services import get_application_containers
 
 # Create your views here.
 class ContainerLogsView(APIView):
@@ -106,23 +107,6 @@ class ContainerListView(APIView):
         responses=ContainerListResponseSerializer
     )     
     def get(self, request):
-        application_id = request.query_params.get("application_id")
-        application = Application.objects.get(id=application_id)
-        deploy_path = application.deploy_path.rstrip("/")
-
-        containers = docker_client.containers.list(all=True)
-
-        container_data = []
-
-        for c in containers:
-            labels = c.labels
-            working_dir = labels.get("com.docker.compose.project.working_dir", "")
-
-            if working_dir and working_dir.startswith(deploy_path):
-                container_data.append({
-                    "id": c.short_id.split(":")[-1],
-                    "name": c.name,
-                    "status": c.status
-                })
+        container_data = get_application_containers(request.GET.get("application_id"))
 
         return success_response({"containers": container_data})
