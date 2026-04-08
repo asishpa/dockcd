@@ -18,7 +18,8 @@ from common.exceptions import CommandNotAllowed, ContainerNotFound
 class ServiceStatusView(APIView):
     permission_classes = [IsAutheneticatedUser]
     @extend_schema(
-        responses=ServiceStatusViewResponseSerializer
+        responses=ServiceStatusViewResponseSerializer,
+        tags=["Services"]
     )
     def get(self,request,service_id):
         service = Service.objects.get(id=service_id)
@@ -31,6 +32,7 @@ class ServiceStatusView(APIView):
 class RestartServiceView(APIView):
     permission_classes = [IsAdminOrDeveloper]
     @extend_schema(
+        tags=["Services"],
         request= ServiceActionRequestSerializer,
         responses=ServiceActionResponseSerializer
     )
@@ -47,6 +49,8 @@ class RestartServiceView(APIView):
 class StopServiceView(APIView):
     permission_classes = [IsAdmin]
     @extend_schema(
+        tags=["Services"],
+
         request= ServiceActionRequestSerializer,
         responses=ServiceActionResponseSerializer
     )
@@ -63,6 +67,7 @@ class StopServiceView(APIView):
 class StartServiceView(APIView):
     permission_classes = [IsAdmin]
     @extend_schema(
+        tags=["Services"],
         request= ServiceActionRequestSerializer,
         responses=ServiceActionResponseSerializer
     )
@@ -81,6 +86,7 @@ class ServiceExecView(APIView):
     permission_classes = [IsAdminOrDeveloper]
 
     @extend_schema(
+        tags=["Services"],
         request=ServiceExecViewRequestSerializer,
         responses=ServiceExecViewResponseSerializer
     )
@@ -107,6 +113,7 @@ class ServiceContainersView(APIView):
     permission_classes = [IsAutheneticatedUser]
 
     @extend_schema(
+        tags=["Services"],
         responses=ServiceContainersViewResponseSerializer
     )
     def get(self,request,service_id):
@@ -125,6 +132,9 @@ class ServiceContainersView(APIView):
 class ContainerLogsView(APIView):
     permission_classes = [IsAutheneticatedUser]
 
+    @extend_schema(
+        tags=["Containers"],
+    )
     def get(self,request,container_name):
         tail = request.GET.get("tail", 200)
         try:
@@ -139,6 +149,7 @@ class ServiceListView(APIView):
     permission_classes = [IsAutheneticatedUser]
 
     @extend_schema(
+        tags=["Services"],
         parameters=[ServiceListRequestSerializer],
         responses=ServiceListResponseSerializer(many=True)
     )
@@ -165,6 +176,7 @@ class AllowedCommandListCreateView(APIView):
         return [IsAdmin()]
 
     @extend_schema(
+        tags=["Services"],
         responses=AllowedCommandResponseSerializer(many=True),
     )
     def get(self, request):
@@ -173,6 +185,8 @@ class AllowedCommandListCreateView(APIView):
         return success_response(response_data)
 
     @extend_schema(
+        tags=["Services"],
+
         request=AllowedCommandCreateRequestSerializer,
         responses=AllowedCommandResponseSerializer,
     )

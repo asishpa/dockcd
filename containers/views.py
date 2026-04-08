@@ -18,6 +18,7 @@ class ContainerLogsView(APIView):
     permission_classes = [IsAutheneticatedUser]
 
     @extend_schema(
+            tags=["Containers"],
     parameters=[
         OpenApiParameter(
             name="container_id",
@@ -35,7 +36,9 @@ class ContainerLogsView(APIView):
         ),
     ],
     responses=ContainerLogsResponseSerializer
-)
+)   #this is no longer used
+    @extend_schema(
+        tags=["Containers"],)
     def get(self, request, container_id, *args, **kwargs):
         try:
             tail = int(request.GET.get("tail", 200))
@@ -60,6 +63,7 @@ class ContainerStartView(APIView):
 
 
     @extend_schema(
+            tags=["Containers"],
         request=ContainerStartRequestSerializer,
         responses=ContainerStartResponseSerializer
     )
@@ -71,6 +75,7 @@ class ContainerStopView(APIView):
     permission_classes = [IsAutheneticatedUser]
 
     @extend_schema(
+            tags=["Containers"],
         request=ContainerStopRequestSerializer,
         responses=ContainerStopResponseSerializer
     )
@@ -85,6 +90,7 @@ class ContainerRestartView(APIView):
     permission_classes = [IsAutheneticatedUser]
 
     @extend_schema(
+            tags=["Containers"],
         request = ContainerRestartRequestSerializer,
         responses = ContainerRestartResponseSerializer
     )
@@ -96,6 +102,7 @@ class ContainerListView(APIView):
     permission_classes = [IsAutheneticatedUser]
 
     @extend_schema(
+            tags=["Containers"],
         parameters=[
             OpenApiParameter(
                 name="application_id",

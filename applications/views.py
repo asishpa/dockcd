@@ -2,9 +2,9 @@ from drf_spectacular.utils import extend_schema
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter
 from rest_framework.views import APIView
-from applications.serializers import  ApplicationListResponseSerializer, ApplicationRegistrationSerializer,ApplicationRegistrationResponseSerializer,ApplicationServiceStatusViewSerializer
+from applications.serializers import  ApplicationDeleteResponseSerializer, ApplicationDeleteRequestSerializer, ApplicationListResponseSerializer, ApplicationRegistrationSerializer,ApplicationRegistrationResponseSerializer,ApplicationServiceStatusViewSerializer
 from common.permissions import IsAdmin
-from .service import register_application_service
+from .service import register_application_service, delete_application_service
 from common.api_response import success_response,error_response
 from common.permissions import IsAutheneticatedUser
 from services.application_status_service import get_application_services_status
@@ -93,3 +93,22 @@ class ApplicationListView(APIView):
         applications = Application.objects.select_related("github_webhook").all()
         response_data = ApplicationListResponseSerializer(applications, many=True).data
         return success_response(response_data)
+
+class DeleteApplicationView(APIView):
+    permission_classes = [IsAdmin]
+    
+    @extend_schema(
+        request=ApplicationDeleteRequestSerializer,
+        responses=ApplicationDeleteResponseSerializer
+    )           
+    def delete(self, request, application_id):
+        try:
+            application = Application.objects.get(id=application_id)
+        except Application.DoesNotExist:
+            return error_response(
+                "APPLICATION_NOT_FOUND",
+                "No application found with the provided ID.",
+                status=404
+            )
+        delete_application_service(application)
+        return success_response({"message": "Application deleted successfully."})

@@ -36,3 +36,9 @@ class ApplicationListResponseSerializer(serializers.Serializer):
 
     def get_has_webhook(self, obj):
         return hasattr(obj, "github_webhook")
+
+class ApplicationDeleteRequestSerializer(serializers.Serializer):
+    application_id = serializers.UUIDField()
+
+class ApplicationDeleteResponseSerializer(serializers.Serializer):
+    message = serializers.CharField()

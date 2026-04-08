@@ -117,6 +117,7 @@ class CreateGitHubWebhookView(APIView):
     permission_classes = [IsAdmin]
 
     @extend_schema(
+        tags=["Webhooks"],
         request=CreateGitHubWebhookRequestSerializer,
         responses=CreateGitHubWebhookResponseSerializer
     )
@@ -138,6 +139,7 @@ class EditGitHubWebhookSecretView(APIView):
     permission_classes = [IsAdmin]
 
     @extend_schema(
+        tags=["Webhooks"],
         request=EditGitHubWebhookSecretRequestSerializer,
         responses=EditGitHubWebhookSecretResponseSerializer
     )

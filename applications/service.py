@@ -2,6 +2,7 @@ from applications.models import Application
 from deployment.executor import LocalDeploymentExecutor
 from deployment.models import Deployment
 from .discover import clone_repo, auto_create_services
+import subprocess
 from common.exceptions import (
     DeployPathInvalid,
     DeployPathExists,
@@ -52,3 +53,17 @@ def register_application_service(validated_data):
     #     LocalDeploymentExecutor(deployment).run()
 
     return application,services
+
+def delete_application_service(application: Application):
+    services = application.services.all()
+    for service in services:
+        deploy_path = service.deploy_path
+        compose_file = service.compose_file_path
+        try:
+            subprocess.run(
+                ["docker-compose", "-f", compose_file, "down"],
+                cwd = deploy_path,
+                  check=False)
+        except Exception:
+            pass
+    application.delete()

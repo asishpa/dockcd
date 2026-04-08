@@ -32,3 +32,7 @@ class ContainerStartFailed(ApplicationError):
 class ContainerStopFailed(ApplicationError):
     error_code = "CONTAINER_STOP_FAILED"
     status_code = 500
+
+class ApplicationNotFound(ApplicationError):
+    error_code = "APPLICATION_NOT_FOUND"
+    status_code = 400

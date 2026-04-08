@@ -20,6 +20,7 @@ from .services import trigger_application_deployment
 class TriggerDeploymentView(APIView):
     permission_classes = [IsAdmin]
     @extend_schema(
+        tags=["Deployments"],
         request=TriggerDeploymentViewRequestSerializer,
         responses=TriggerDeploymentViewResponseSerializer
     )   
@@ -45,6 +46,8 @@ class ApplicationDeploymentListView(APIView):
     permission_classes = [IsAutheneticatedUser]
 
     @extend_schema(
+        tags=["Deployments"],
+
         parameters=[
             OpenApiParameter(
                 name="application_id",
@@ -92,6 +95,7 @@ class DeploymentLogsView(APIView):
     permission_classes = [IsAutheneticatedUser]
 
     @extend_schema(
+        tags=["Deployments"],
         parameters=[
             OpenApiParameter(
                 name="deployment_id",
@@ -138,6 +142,7 @@ class ServiceDeploymentListView(APIView):
     permission_classes = [IsAutheneticatedUser]
 
     @extend_schema(
+        tags=["Deployments"],
         parameters=[
             OpenApiParameter(
                 name="service_id",

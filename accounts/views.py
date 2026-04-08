@@ -15,6 +15,7 @@ class LoginView(APIView):
     permission_classes = []
 
     @extend_schema(
+            tags=["Authentication"],
         request=LoginRequestSerializer, 
         responses=LoginResponseSerializer
     )
@@ -42,6 +43,7 @@ class LoginView(APIView):
 class BootStrapAdminView(APIView):
 
     @extend_schema(
+            tags=["Setup"],
         request=BootstrapAdminRequestSerializer, 
         responses=BootstrapAdminResponseSerializer
     )   
@@ -63,6 +65,7 @@ class BootStrapAdminView(APIView):
 
 class SetupStatusView(APIView):
     @extend_schema(
+            tags=["Setup"],
         responses=SetupStatusResponseSerializer
     )
     def get(self, request):
@@ -75,6 +78,7 @@ class CreateAccountView(APIView):
     permission_classes = [IsAdmin]
 
     @extend_schema(
+            tags=["Accounts"],
         request = CreateAccountRequestSerializer,
         responses= CreateAccountResponseSerializer
     )
@@ -101,6 +105,8 @@ class UserListView(APIView):
     permission_classes = [IsAdmin]
 
     @extend_schema(
+            tags=["Accounts"],
+
         responses=UserListResponseSerializer(many=True)
     )   
     def get(self, request):
@@ -112,6 +118,7 @@ class DeactivateUserView(APIView):
     permission_classes = [IsAdmin]
 
     @extend_schema(
+            tags=["Accounts"],
         request=UserStatusRequestSerializer,
         responses=MessageResponseSerializer
     )   
@@ -134,6 +141,7 @@ class ActivateUserView(APIView):
     permission_classes = [IsAdmin]
 
     @extend_schema(
+            tags=["Accounts"],
         request=UserStatusRequestSerializer,
         responses=MessageResponseSerializer
     )   
@@ -156,6 +164,7 @@ class AdminResetPasswordView(APIView):
     permission_classes = [IsAdmin]
 
     @extend_schema(
+            tags=["Accounts"],
         request=AdminResetPasswordSerializer,
         responses=MessageResponseSerializer
     )

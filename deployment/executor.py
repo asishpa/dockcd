@@ -53,6 +53,7 @@ class LocalDeploymentExecutor:
             self._mark_success()
         except Exception as exc:
             self._mark_failed(str(exc))
+            print(f"Deployment failed for service {self.service.name}: {exc}")
             raise
         finally:
             self._release_lock()
@@ -87,12 +88,13 @@ class LocalDeploymentExecutor:
     def _update_parent_status(self):
 
         statuses = list(self.deployment.service_deployments.values_list("status", flat=True))
-
+        print(statuses)
         if all(s == "success" for s in statuses):
             self.deployment.status = "success"
             self.deployment.finished_at = timezone.now()
 
         elif any(s == "failed" for s in statuses):
+            print("service failed is:", self.service.name)
             self.deployment.status = "failed"
             self.deployment.finished_at = timezone.now()
 
