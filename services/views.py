@@ -9,7 +9,7 @@ from common.permissions import IsAdminOrDeveloper, IsAutheneticatedUser, IsAdmin
 from services.command_service import validate_command
 from services.docker_utils import get_service_container
 from services.models import AllowedCommands, Service
-from services.serializers import AllowedCommandCreateRequestSerializer, AllowedCommandResponseSerializer, ServiceActionRequestSerializer, ServiceContainersViewResponseSerializer, ServiceExecViewRequestSerializer, ServiceExecViewResponseSerializer, ServiceListBasicResponseSerializer, ServiceListRequestSerializer, ServiceListResponseSerializer, ServiceStatusViewResponseSerializer, ServiceActionResponseSerializer
+from services.serializers import AllowedCommandCreateRequestSerializer, AllowedCommandResponseSerializer, ServiceActionRequestSerializer, ServiceContainersViewResponseSerializer, ServiceDeploymentOrderListRequestSerializer, ServiceDeploymentOrderListResponseSerializer, ServiceExecViewRequestSerializer, ServiceExecViewResponseSerializer, ServiceListBasicResponseSerializer, ServiceListRequestSerializer, ServiceListResponseSerializer, ServiceStatusViewResponseSerializer, ServiceActionResponseSerializer
 from services.services import get_service_status, restart_service, start_service, stop_service
 from services.command_service import validate_command
 from deployment.exec_service import execute_command
@@ -166,6 +166,25 @@ class ServiceListView(APIView):
             return success_response(response_data)
 
         response_data = ServiceListResponseSerializer(services, many=True).data
+        return success_response(response_data)
+
+
+class ServiceDeploymentOrderListView(APIView):
+    permission_classes = [IsAutheneticatedUser]
+
+    @extend_schema(
+        tags=["Services"],
+        parameters=[ServiceDeploymentOrderListRequestSerializer],
+        responses=ServiceDeploymentOrderListResponseSerializer(many=True)
+    )
+    def get(self, request):
+        serializer = ServiceDeploymentOrderListRequestSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+
+        application_id = serializer.validated_data["application_id"]
+        services = Service.objects.filter(application_id=application_id).order_by("deploy_order", "name")
+
+        response_data = ServiceDeploymentOrderListResponseSerializer(services, many=True).data
         return success_response(response_data)
 
 

@@ -7,7 +7,7 @@ def trigger_application_deployment(application):
         application=application,
         status = Deployment.STATUS_PENDING
         )
-    for service in application.services.all():
+    for service in application.services.order_by("deploy_order"):
         sd = ServiceDeployment.objects.create(
             deployment=deployment,
             service=service,

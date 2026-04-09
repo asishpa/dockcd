@@ -1,6 +1,9 @@
 
+from celery.beat import Service
+
 from common import docker_client
 from services.docker_utils import get_service_container
+from django.db import transaction
 
 def get_service_status(service):
     container = get_service_container(service)
@@ -39,4 +42,18 @@ def start_service(service):
         container.start()
         started.append(container.name)
     return started
+def update_service_deploy_order(application, services_data):
+
+    with transaction.atomic():
+
+        for item in services_data:
+
+            service = Service.objects.get(
+                id=item["service_id"],
+                application=application
+            )
+
+            service.deploy_order = item["deploy_order"]
+
+            service.save(update_fields=["deploy_order"])
 

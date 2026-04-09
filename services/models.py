@@ -27,6 +27,7 @@ class Service(models.Model):
         default=True,
         help_text="Deploy automatically on GitHub webhook"
     )
+    deploy_order = models.IntegerField(default=0)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

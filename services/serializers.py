@@ -27,9 +27,19 @@ class ServiceListRequestSerializer(serializers.Serializer):
     basic = serializers.BooleanField(required=False, default=False)
 
 
+class ServiceDeploymentOrderListRequestSerializer(serializers.Serializer):
+    application_id = serializers.UUIDField()
+
+
 class ServiceListBasicResponseSerializer(serializers.Serializer):
     id = serializers.UUIDField()
     name = serializers.CharField()
+
+
+class ServiceDeploymentOrderListResponseSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    deploy_order = serializers.IntegerField()
 
 
 class ServiceListResponseSerializer(serializers.Serializer):
@@ -54,3 +64,9 @@ class AllowedCommandResponseSerializer(serializers.Serializer):
     description = serializers.CharField(allow_blank=True)
     created_at = serializers.DateTimeField()
     
+class ServiceDeploymentOrderSerializer(serializers.Serializer):
+    service_id = serializers.UUIDField()
+    deploy_order = serializers.IntegerField()
+
+class ServiceDeploymentOrderUpdateSerializer(serializers.Serializer):
+    services = ServiceDeploymentOrderSerializer(many=True)

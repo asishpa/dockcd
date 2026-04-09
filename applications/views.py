@@ -4,11 +4,13 @@ from drf_spectacular.utils import OpenApiParameter
 from rest_framework.views import APIView
 from applications.serializers import  ApplicationDeleteResponseSerializer, ApplicationDeleteRequestSerializer, ApplicationListResponseSerializer, ApplicationRegistrationSerializer,ApplicationRegistrationResponseSerializer,ApplicationServiceStatusViewSerializer
 from common.permissions import IsAdmin
+from services.services import update_service_deploy_order
 from .service import register_application_service, delete_application_service
 from common.api_response import success_response,error_response
 from common.permissions import IsAutheneticatedUser
 from services.application_status_service import get_application_services_status
 from applications.models import Application
+from services.serializers import ServiceDeploymentOrderSerializer
 import uuid
 
 
@@ -112,3 +114,37 @@ class DeleteApplicationView(APIView):
             )
         delete_application_service(application)
         return success_response({"message": "Application deleted successfully."})
+
+
+class UpdateServiceDeployOrderView(APIView):
+
+    permission_classes = [IsAdmin]
+
+    @extend_schema(
+        request=ServiceDeploymentOrderSerializer
+    )
+    def post(self, request, application_id):
+
+        serializer = ServiceDeploymentOrderSerializer(data=request.data)
+
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            application = Application.objects.get(id=application_id)
+
+        except Application.DoesNotExist:
+
+            return error_response(
+                "APPLICATION_NOT_FOUND",
+                "Application not found",
+                status=404
+            )
+
+        update_service_deploy_order(
+            application,
+            serializer.validated_data["services"]
+        )
+
+        return success_response({
+            "message": "Service deployment order updated successfully"
+        })

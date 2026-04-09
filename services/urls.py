@@ -4,6 +4,7 @@ from services.views import (
     ContainerLogsView,
     RestartServiceView,
     ServiceContainersView,
+    ServiceDeploymentOrderListView,
     ServiceListView,
     ServiceStatusView,
     StartServiceView,
@@ -20,6 +21,11 @@ urlpatterns = [
         "",
         ServiceListView.as_view(),
         name="service-list"
+    ),
+    path(
+        "deployment-order/",
+        ServiceDeploymentOrderListView.as_view(),
+        name="service-deployment-order-list"
     ),
     
     path(

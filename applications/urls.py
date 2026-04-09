@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import ApplicationListView, ApplicationServiceStatusView, RegisterApplicationView, DeleteApplicationView
+from .views import ApplicationListView, ApplicationServiceStatusView, RegisterApplicationView, DeleteApplicationView, UpdateServiceDeployOrderView
 
 urlpatterns = [
     path(
@@ -17,5 +17,9 @@ urlpatterns = [
         "<uuid:application_id>/delete/",
         DeleteApplicationView.as_view(),
         name="delete-application"
-    )
+    ),
+    path(
+    "applications/<uuid:application_id>/services/deploy-order/",
+    UpdateServiceDeployOrderView.as_view(),
+)
 ]

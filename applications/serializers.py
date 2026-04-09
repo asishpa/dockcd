@@ -42,3 +42,4 @@ class ApplicationDeleteRequestSerializer(serializers.Serializer):
 
 class ApplicationDeleteResponseSerializer(serializers.Serializer):
     message = serializers.CharField()
+

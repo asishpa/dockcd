@@ -52,6 +52,7 @@ class LocalDeploymentExecutor:
             self._docker_compose_up()
             self._mark_success()
         except Exception as exc:
+            logger
             self._mark_failed(str(exc))
             print(f"Deployment failed for service {self.service.name}: {exc}")
             raise
@@ -190,7 +191,7 @@ class LocalDeploymentExecutor:
         
 
         for line in process.stdout:
-            logger.info(line.strip()) # show in terminal
+#            logger.info(line.strip()) # show in terminal
 
             self._write_log(line)
 
