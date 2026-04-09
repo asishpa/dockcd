@@ -151,3 +151,227 @@ How these layers work together:
 
 DockCD replaces manual server-side deployment operations with a controlled, self-service platform.
 It improves speed, visibility, and safety by combining command control, realtime logs, automated deployment flow, and RBAC in one system.
+
+## Server Deployment Guide (Production)
+
+This section explains how to deploy DockCD on a Linux server with Docker Compose, including:
+
+- required containers
+- volume mounts
+- folder permissions needed for repository cloning and service deployment
+
+### 1. Server prerequisites
+
+Install these on the target server:
+
+- Docker Engine (with Docker Compose plugin)
+- Git
+- A Linux user for DockCD runtime (recommended: `dockcd`)
+
+Verify:
+
+```bash
+docker --version
+docker compose version
+git --version
+```
+
+### 2. Create runtime user and folders
+
+Use a dedicated user and predictable folder layout.
+
+```bash
+sudo useradd -m -s /bin/bash dockcd || true
+sudo mkdir -p /opt/dockcd
+sudo mkdir -p /srv/dockcd/apps
+sudo mkdir -p /srv/dockcd/data/postgres
+sudo mkdir -p /srv/dockcd/data/redis
+sudo chown -R dockcd:dockcd /opt/dockcd /srv/dockcd
+sudo chmod -R 775 /srv/dockcd
+```
+
+Why this matters:
+
+- `/opt/dockcd` stores the DockCD platform code and compose files
+- `/srv/dockcd/apps` is where DockCD clones managed application repositories
+- `/srv/dockcd/data/*` stores persistent data for stateful containers
+
+### 3. Allow DockCD to run Docker commands
+
+DockCD executes `docker compose` commands for managed services. Add the runtime user to the `docker` group:
+
+```bash
+sudo usermod -aG docker dockcd
+newgrp docker
+```
+
+If you skip this step, clone/deploy actions may fail when DockCD tries to start or inspect containers.
+
+### 4. Clone DockCD repository with correct ownership
+
+```bash
+sudo -u dockcd -H bash -lc 'cd /opt/dockcd && git clone <your-dockcd-repo-url> .'
+```
+
+Keep ownership aligned with the runtime user:
+
+```bash
+sudo chown -R dockcd:dockcd /opt/dockcd
+```
+
+### 5. Define environment file
+
+Create an environment file at `/opt/dockcd/.env.prod`:
+
+```env
+ENVIRONMENT=production
+DEBUG=False
+ALLOWED_HOSTS=your-server-domain,127.0.0.1,localhost
+
+DB_NAME=dockcd
+DB_USER=postgres
+DB_PASSWORD=change-me
+DB_HOST=postgres
+DB_PORT=5432
+
+REDIS_PASSWORD=change-me
+REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+```
+
+### 6. Required containers (minimum stack)
+
+For production, run DockCD as multiple containers:
+
+- `postgres` (database)
+- `redis` (broker, caching, channel layer)
+- `dockcd-web` (Django API)
+- `dockcd-worker` (Celery worker)
+- `dockcd-beat` (Celery beat scheduler)
+- optional: `nginx` reverse proxy
+
+### 7. Example production compose with volume mounts
+
+Create `/opt/dockcd/docker-compose.prod.yml`:
+
+```yaml
+services:
+	postgres:
+		image: postgres:16
+		restart: always
+		environment:
+			POSTGRES_DB: ${DB_NAME}
+			POSTGRES_USER: ${DB_USER}
+			POSTGRES_PASSWORD: ${DB_PASSWORD}
+		volumes:
+			- /srv/dockcd/data/postgres:/var/lib/postgresql/data
+
+	redis:
+		image: redis:7
+		command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+		restart: always
+		volumes:
+			- /srv/dockcd/data/redis:/data
+
+	dockcd-web:
+		build:
+			context: .
+			dockerfile: devops/Dockerfile
+		env_file:
+			- .env.prod
+		command: gunicorn --bind 0.0.0.0:8000 --workers 3 dockcd.wsgi:application
+		depends_on:
+			- postgres
+			- redis
+		restart: always
+		ports:
+			- "8000:8000"
+		volumes:
+			- /var/run/docker.sock:/var/run/docker.sock
+			- /srv/dockcd/apps:/srv/dockcd/apps
+
+	dockcd-worker:
+		build:
+			context: .
+			dockerfile: devops/Dockerfile
+		env_file:
+			- .env.prod
+		command: celery -A dockcd worker -l info
+		depends_on:
+			- postgres
+			- redis
+		restart: always
+		volumes:
+			- /var/run/docker.sock:/var/run/docker.sock
+			- /srv/dockcd/apps:/srv/dockcd/apps
+
+	dockcd-beat:
+		build:
+			context: .
+			dockerfile: devops/Dockerfile
+		env_file:
+			- .env.prod
+		command: celery -A dockcd beat -l info
+		depends_on:
+			- postgres
+			- redis
+		restart: always
+		volumes:
+			- /var/run/docker.sock:/var/run/docker.sock
+			- /srv/dockcd/apps:/srv/dockcd/apps
+```
+
+Important volume notes:
+
+- `/var/run/docker.sock:/var/run/docker.sock` lets DockCD control Docker on the host
+- `/srv/dockcd/apps:/srv/dockcd/apps` ensures cloned repositories and compose files are shared and persistent
+- `/srv/dockcd/data/postgres:/var/lib/postgresql/data` persists database state
+
+### 8. Bring up the platform
+
+```bash
+cd /opt/dockcd
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+```
+
+Run migrations and create admin user:
+
+```bash
+docker compose --env-file .env.prod -f docker-compose.prod.yml exec dockcd-web python manage.py migrate
+docker compose --env-file .env.prod -f docker-compose.prod.yml exec dockcd-web python manage.py createsuperuser
+```
+
+### 9. Folder permissions required for application cloning
+
+DockCD must be able to create and update directories under `/srv/dockcd/apps` while handling webhook/manual deployments.
+
+Recommended permissions:
+
+```bash
+sudo chown -R dockcd:docker /srv/dockcd/apps
+sudo chmod -R 2775 /srv/dockcd/apps
+```
+
+`2775` sets the group sticky bit so newly created directories inherit the same group, reducing permission drift across clone/pull operations.
+
+Quick validation from host:
+
+```bash
+sudo -u dockcd -H bash -lc 'mkdir -p /srv/dockcd/apps/permission-test && rm -rf /srv/dockcd/apps/permission-test'
+```
+
+### 10. Operational checks
+
+Use these checks after deployment:
+
+```bash
+docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml logs -f dockcd-web
+docker compose -f docker-compose.prod.yml logs -f dockcd-worker
+docker compose -f docker-compose.prod.yml logs -f dockcd-beat
+```
+
+If repository cloning fails, check:
+
+- credentials/access to the application repository
+- write permission on `/srv/dockcd/apps`
+- Docker socket mount and docker group membership
