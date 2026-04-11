@@ -51,7 +51,10 @@ def extract_services_from_compose(compose_full_path):
     with open(compose_full_path, "r") as f:
         data = yaml.safe_load(f)
 
-    return list(data.get("services", {}).keys())
+    services = list(data.get("services", {}).keys())
+    return services[0] if services else None
+
+
 
 
 def auto_create_services(application):
@@ -62,18 +65,16 @@ def auto_create_services(application):
     for compose_file in compose_files:
         full_path = os.path.join(repo_path, compose_file)
 
-        service_names = extract_services_from_compose(full_path)
-        print(f"Discovered services in {compose_file}: {service_names}")
-        for service_name in service_names:
-            service, created = Service.objects.get_or_create(
-                application=application,
-                name=service_name,
-                defaults={
-                    "compose_file_path": compose_file,
-                    "deploy_path": repo_path,
-                    "auto_deploy": True
-                }
-            )
+        service_name = extract_services_from_compose(full_path)
+        service, created = Service.objects.get_or_create(
+        application=application,
+        name=service_name,
+            defaults={
+                "compose_file_path": compose_file,
+                "deploy_path": repo_path,
+                "auto_deploy": True
+            }
+        )
 
         created_services.append(service)     
     return created_services
