@@ -8,6 +8,7 @@ class LoginResponseSerializer(serializers.Serializer):
     access_token = serializers.CharField()
     refresh_token = serializers.CharField()
     role = serializers.CharField()
+    username = serializers.CharField()
 
 class BootstrapAdminRequestSerializer(serializers.Serializer):
     username = serializers.CharField()

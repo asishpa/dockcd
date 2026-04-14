@@ -9,6 +9,7 @@ from services.views import (
     ServiceStatusView,
     StartServiceView,
     StopServiceView,
+    SyncServiceVIew,
 )
 
 urlpatterns = [
@@ -58,4 +59,8 @@ urlpatterns = [
         ContainerLogsView.as_view(),
         name="container-logs"
     ),
+    path(
+    "<uuid:service_id>/sync/",
+    SyncServiceVIew.as_view(),
+)
 ]

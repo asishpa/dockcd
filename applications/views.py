@@ -2,8 +2,10 @@ from drf_spectacular.utils import extend_schema
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter
 from rest_framework.views import APIView
-from applications.serializers import  ApplicationDeleteResponseSerializer, ApplicationDeleteRequestSerializer, ApplicationListResponseSerializer, ApplicationRegistrationSerializer,ApplicationRegistrationResponseSerializer,ApplicationServiceStatusViewSerializer
+from applications.serializers import  ApplicationDeleteResponseSerializer, ApplicationDeleteRequestSerializer, ApplicationListResponseSerializer, ApplicationRegistrationSerializer,ApplicationRegistrationResponseSerializer,ApplicationServiceStatusViewSerializer, SyncApplicationResponseSerializer
 from common.permissions import IsAdmin
+from deployment.models import Deployment, ServiceDeployment
+from deployment.tasks import run_deployment
 from services.services import update_service_deploy_order
 from .service import register_application_service, delete_application_service
 from common.api_response import success_response,error_response
@@ -12,7 +14,7 @@ from services.application_status_service import get_application_services_status
 from applications.models import Application
 from services.serializers import ServiceDeploymentOrderSerializer
 import uuid
-
+from django.db.models import F
 
 
 class RegisterApplicationView(APIView):
@@ -147,4 +149,62 @@ class UpdateServiceDeployOrderView(APIView):
 
         return success_response({
             "message": "Service deployment order updated successfully"
+        })
+
+class SyncApplicationView(APIView):
+    permission_classes = [IsAdmin]
+
+    @extend_schema(
+        tags=["Applications"],
+        responses=SyncApplicationResponseSerializer
+    )
+
+    def post(self, request, application_id):
+
+        try:
+            application = Application.objects.get(id=application_id)
+        except Application.DoesNotExist:
+            return error_response(
+                "APPLICATION_NOT_FOUND",
+                "No application found with the provided ID.",
+                status=400
+            )
+
+        services = application.services.exclude(
+            desired_commit=F("last_deployed_commit")
+        )
+
+        if not services.exists():
+
+            return error_response(
+                "APPLICATION_ALREADY_SYNCED",
+                "All services are already synced.",
+                status=400
+            )
+
+        deployment = Deployment.objects.create(
+            application=application,
+            commit_sha=max(
+                [s.desired_commit for s in services if s.desired_commit],
+                default=""
+            )
+        )
+
+        service_deployments = []
+
+        for service in services:
+
+            sd = ServiceDeployment.objects.create(
+                deployment=deployment,
+                service=service,
+                status=ServiceDeployment.STATUS_PENDING
+            )
+
+            run_deployment.delay(str(sd.id))
+
+            service_deployments.append(str(sd.id))
+
+        return success_response({
+            "deployment_id": str(deployment.id),
+            "service_deployments": service_deployments
         })

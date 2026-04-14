@@ -1,0 +1,115 @@
+services:
+  db:
+    image: postgres:16
+    container_name: db
+    restart: always
+    networks:
+      - appnet
+    ports:
+      - "5431:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=buddy123
+      - POSTGRES_DB=dockcd
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis
+    container_name: redis
+    restart: always
+    networks:
+      - appnet
+    ports:
+      - "6380:6379"  
+    environment:
+      - REDIS_PASSWORD=buddy123
+      - ALLOW_EMPTY_PASSWORD=no
+      - REDIS_DISABLE_COMMANDS=FLUSHDB,FLUSHALL
+    volumes:
+      - redis_data:/bitnami/redis/data
+
+  web:
+    image: dockcd:27
+    working_dir: /app
+    command: uvicorn dockcd.asgi:application --host 0.0.0.0 --port 8000
+    restart: always
+    networks:
+      - appnet
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_HOST=db
+      - DB_USER=postgres
+      - DB_PASSWORD=buddy123
+
+      - DB_PORT=5432
+      - REDIS_HOST=localhost
+      - REDIS_PORT=6380
+      - REDIS_URL=redis://:buddy123@redis:6379/0
+    env_file:
+      - ../.env
+    depends_on:
+      - redis
+    volumes:
+      - ../:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/dockcd:/opt/dockcd/
+    
+
+  worker:
+    image: dockcd:27
+    working_dir: /app
+    command: celery -A dockcd worker -l info --concurrency=4
+    restart: always
+    networks:
+      - appnet
+    environment:
+      - DB_HOST=db
+      - DB_USER=postgres
+      - DB_PASSWORD=buddy123
+      - DB_PORT=5432
+      - REDIS_HOST=localhost
+      - REDIS_PORT=6380
+      - REDIS_URL=redis://:buddy123@redis:6379/0
+    env_file:
+      - ../.env
+    depends_on:
+      - redis
+    volumes:
+      - ../:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/dockcd:/opt/dockcd/
+
+  beat:
+    image: dockcd:27
+    working_dir: /app
+    command: celery -A dockcd beat -l info --schedule /var/run/celery/celerybeat-schedule
+    restart: always
+    networks:
+      - appnet
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=buddy123
+      - REDIS_HOST=localhost
+      - REDIS_PORT=6380
+      - REDIS_URL=redis://:buddy123@redis:6379/0
+    env_file:
+      - ../.env
+    depends_on:
+      - redis
+    volumes:
+      - ../:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/dockcd:/opt/dockcd/
+      - celerybeat_data:/var/run/celery 
+
+volumes:
+  redis_data:
+  celerybeat_data:
+  db_data:
+networks:
+  appnet:
+    driver: bridge

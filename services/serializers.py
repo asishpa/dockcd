@@ -64,9 +64,24 @@ class AllowedCommandResponseSerializer(serializers.Serializer):
     description = serializers.CharField(allow_blank=True)
     created_at = serializers.DateTimeField()
     
-class ServiceDeploymentOrderSerializer(serializers.Serializer):
+class ServiceDeployOrderItemSerializer(serializers.Serializer):
     service_id = serializers.UUIDField()
     deploy_order = serializers.IntegerField()
 
+
+class ServiceDeploymentOrderSerializer(serializers.Serializer):
+    services = ServiceDeployOrderItemSerializer(many=True)
+
 class ServiceDeploymentOrderUpdateSerializer(serializers.Serializer):
     services = ServiceDeploymentOrderSerializer(many=True)
+
+
+class SyncServiceResponseSerializer(serializers.Serializer):
+    deployment_id = serializers.UUIDField()
+    service_deployment_id = serializers.UUIDField()
+
+class AllowedCommandDeleteRequestSerializer(serializers.Serializer):
+    command = serializers.CharField(max_length=255)
+
+class AllowedCommandDeleteResponseSerializer(serializers.Serializer):
+    message = serializers.CharField()

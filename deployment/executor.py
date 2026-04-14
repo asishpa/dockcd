@@ -5,6 +5,7 @@ from django.db.models.functions import Concat
 import subprocess
 import uuid
 from django.utils import timezone
+
 from .models import Deployment, ServiceDeployment
 from common.redis_client import redis_client
 from asgiref.sync import async_to_sync
@@ -47,7 +48,7 @@ class LocalDeploymentExecutor:
 
         try:
             self._mark_running()
-            #self._sync_repo()
+            self._sync_repo()
             #self._docker_compose_pull()
             self._docker_compose_up()
             self._mark_success()
@@ -76,6 +77,10 @@ class LocalDeploymentExecutor:
         self.service_deployment.status = Deployment.STATUS_SUCCESS
         self.service_deployment.finished_at = timezone.now()
         self.service_deployment.save(update_fields=["status", "finished_at"])
+        service = self.service_deployment.service
+
+        service.last_deployed_commit = service.desired_commit
+        service.save(update_fields=["last_deployed_commit"])
         self._append_deployment_log("Service deployment finished successfully.")
         self._update_parent_status()
 
@@ -202,9 +207,6 @@ class LocalDeploymentExecutor:
         if process.returncode != 0:
             raise RuntimeError(f"Command failed: {command_str}")
     
-
-    
-
 
     def _acquire_lock(self):
         lock_key = f"deploy_lock:{self.service.id}"

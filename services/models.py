@@ -27,8 +27,14 @@ class Service(models.Model):
         default=True,
         help_text="Deploy automatically on GitHub webhook"
     )
+    env_file_path = models.CharField(
+        max_length=255,
+        blank=True
+    )
     deploy_order = models.IntegerField(default=0)
 
+    desired_commit = models.CharField(max_length=40, blank=True,null=True)
+    last_deployed_commit = models.CharField(max_length=40, blank=True,null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -37,9 +43,15 @@ class Service(models.Model):
 
     def __str__(self):
         return f"{self.application.name} :: {self.name}"
+    @property
+    def sync_status(self):
+        if self.desired_commit != self.last_deployed_commit:
+            return "out_of_sync"
+        return "synced"
 class AllowedCommands(models.Model):
     command = models.CharField(max_length=255, unique=True)
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     def __str__(self):
         return self.command
+    

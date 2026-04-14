@@ -2,6 +2,7 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 import json
 import asyncio
 import threading
+import logging
 
 from services.command_service import ensure_allowed_command, validate_command
 from .docker_utils import execute_command
@@ -11,6 +12,7 @@ from common.exceptions import CommandNotAllowed
 # from services.command_service import validate_command
 
 # Track threads to make sure that only one thread per conntaner is running
+logger = logging.getLogger(__name__)
 container_streams = {}
 class ServiceExecConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -41,7 +43,23 @@ class ServiceExecConsumer(AsyncWebsocketConsumer):
             await self.send(json.dumps({"error": "mode must be one of: auto, process, django_shell"}))
             return
 
-        command_for_validation = command if mode != "django_shell" else "python"
+        # Restrict django shell
+        if mode == "django_shell":
+            logger.info(f"User '{user}' is attempting to access django shell in container '{self.container_name}'")
+            if not user or not getattr(user, "is_authenticated", False):
+                await self.send(json.dumps({
+                    "error": "Authentication required for django shell."
+                }))
+                return
+
+            if getattr(user, "role", None) != "admin":
+                logger.warning(f"User '{user}' is not an admin and is attempting to access django shell in container '{self.container_name}'")
+                await self.send(json.dumps({
+                    "error": "django shell access is restricted to admin users."
+                }))
+                return
+
+        command_for_validation = command if mode != "django_shell" else "shell"
         try:
             await sync_to_async(ensure_allowed_command)(command_for_validation)
             if user and getattr(user, "is_authenticated", False):

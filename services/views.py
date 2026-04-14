@@ -2,14 +2,18 @@ from http.client import responses
 
 from django.shortcuts import render
 from drf_spectacular.utils import extend_schema
+from requests import request
 from rest_framework.views import APIView
+from yaml import serializer
 from common import docker_client
 from common.api_response import success_response,error_response
 from common.permissions import IsAdminOrDeveloper, IsAutheneticatedUser, IsAdmin
+from deployment.models import Deployment, ServiceDeployment
+from deployment.tasks import run_deployment
 from services.command_service import validate_command
 from services.docker_utils import get_service_container
 from services.models import AllowedCommands, Service
-from services.serializers import AllowedCommandCreateRequestSerializer, AllowedCommandResponseSerializer, ServiceActionRequestSerializer, ServiceContainersViewResponseSerializer, ServiceDeploymentOrderListRequestSerializer, ServiceDeploymentOrderListResponseSerializer, ServiceExecViewRequestSerializer, ServiceExecViewResponseSerializer, ServiceListBasicResponseSerializer, ServiceListRequestSerializer, ServiceListResponseSerializer, ServiceStatusViewResponseSerializer, ServiceActionResponseSerializer
+from services.serializers import AllowedCommandCreateRequestSerializer, AllowedCommandDeleteRequestSerializer, AllowedCommandDeleteResponseSerializer, AllowedCommandResponseSerializer, ServiceActionRequestSerializer, ServiceContainersViewResponseSerializer, ServiceDeploymentOrderListRequestSerializer, ServiceDeploymentOrderListResponseSerializer, ServiceExecViewRequestSerializer, ServiceExecViewResponseSerializer, ServiceListBasicResponseSerializer, ServiceListRequestSerializer, ServiceListResponseSerializer, ServiceStatusViewResponseSerializer, ServiceActionResponseSerializer, SyncServiceResponseSerializer
 from services.services import get_service_status, restart_service, start_service, stop_service
 from services.command_service import validate_command
 from deployment.exec_service import execute_command
@@ -228,3 +232,56 @@ class AllowedCommandListCreateView(APIView):
 
         response_data = AllowedCommandResponseSerializer(allowed_command).data
         return success_response(response_data)
+    @extend_schema(
+    tags=["Services"],
+    request=AllowedCommandDeleteRequestSerializer,
+    responses=AllowedCommandDeleteResponseSerializer
+)
+    def delete(self, request):
+        serializer = AllowedCommandDeleteRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        command = serializer.validated_data["command"]
+
+        try:
+            allowed_command = AllowedCommands.objects.get(command=command)
+            allowed_command.delete()
+
+            response_serializer = AllowedCommandDeleteResponseSerializer(data={
+                "message": f"Command '{command}' deleted successfully."
+            })
+            response_serializer.is_valid(raise_exception=True)
+
+            return success_response(response_serializer.data)
+
+        except AllowedCommands.DoesNotExist:
+            return error_response("COMMAND_NOT_FOUND", f"Command '{command}' not found.", status=404)
+
+class SyncServiceVIew(APIView):
+    permission_classes = [IsAdmin]
+    
+    @extend_schema(
+        tags=["Services"],
+        responses=SyncServiceResponseSerializer
+    )               
+    def post(self,request,service_id):
+        try:
+            service = Service.objects.get(id=service_id)
+        except Service.DoesNotExist:
+            return error_response("SERVICE_NOT_FOUND","Service not found", status=400)
+        if service.sync_status == "synced":
+            return error_response("SERVICE_IN_SYNC","Service is already in sync", status=400)
+        deployment = Deployment.objects.create(
+            application=service.application,
+            commit_sha=service.desired_commit
+        )
+        sd = ServiceDeployment.objects.create(
+            deployment=deployment,
+            service=service,
+            status = ServiceDeployment.STATUS_PENDING
+        )
+        run_deployment.delay(str(sd.id))
+        return success_response({
+            "deployment_id": str(deployment.id),
+            "service_deployment_id": str(sd.id)
+        })

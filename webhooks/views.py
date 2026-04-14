@@ -8,12 +8,11 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from drf_spectacular.utils import extend_schema
 
+from alerts import services
 from applications.models import Application
 from common.api_response import success_response, error_response
 from common.permissions import IsAdmin
-from deployment.tasks import run_deployment
 from services.models import Service
-from deployment.models import Deployment, ServiceDeployment
 from webhooks.models import GitHubWebhook
 from webhooks.serializers import (
     CreateGitHubWebhookRequestSerializer,
@@ -40,7 +39,7 @@ def github_webhook(request):
 
     repo_url = data["repository"]["clone_url"]
     branch = data["repository"]["default_branch"]
-
+    new_commit = data.get("after", "")
     try:
         application = Application.objects.get(
             repo_url=repo_url,
@@ -82,34 +81,46 @@ def github_webhook(request):
     )
 
     matched_services = []
+
     for service in services:
-        if service.compose_file_path in changed_files:
+
+        compose_changed = service.compose_file_path in changed_files
+
+        env_changed = (
+            service.env_file_path
+            and service.env_file_path in changed_files
+        )
+
+        service_folder = service.compose_file_path.rsplit("/", 1)[0]
+
+        code_changed = any(
+            f.startswith(service_folder)
+            for f in changed_files
+        )
+
+        if compose_changed or env_changed or code_changed:
             matched_services.append(service)
 
     if not matched_services:
         return JsonResponse({
             "status": "processed",
-            "deployments": []
+            "out_of_sync_services": []
         })
 
-    deployment = Deployment.objects.create(
-        application=application,
-        commit_sha=data.get("after", "")
-    )
+    updated_services = []
 
     for service in matched_services:
-        service_deployment = ServiceDeployment.objects.create(
-            deployment=deployment,
-            service=service,
-            status=ServiceDeployment.STATUS_PENDING,
-        )
-        run_deployment.delay(str(service_deployment.id))
-        triggered.append(str(service_deployment.id))
 
+        if service.desired_commit != new_commit:
+
+            service.desired_commit = new_commit
+            service.save(update_fields=["desired_commit"])
+
+        updated_services.append(str(service.id))
+    
     return JsonResponse({
         "status": "processed",
-        "deployment_id": str(deployment.id),
-        "service_deployments": triggered
+        "out_of_sync_services": updated_services
     })
 
 

@@ -59,6 +59,9 @@ def get_application_services_status(application, service_id=None):
         result.append({
             "service_id": str(service.id),
             "service_name": service.name,
+            "sync_status": service.sync_status,
+            "desired_commit": service.desired_commit,  
+            "last_deployed_commit": service.last_deployed_commit,
             "status": service_status,
             "container_count": len(service_containers),
             "containers": container_info

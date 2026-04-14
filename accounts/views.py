@@ -35,7 +35,8 @@ class LoginView(APIView):
         response_data = LoginResponseSerializer({
             "access_token": str(refresh.access_token),
             "refresh_token": str(refresh),
-            "role": user.role
+            "role": user.role,
+            "username": user.username
         }).data
         return success_response(response_data)
 

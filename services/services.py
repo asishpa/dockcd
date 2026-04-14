@@ -1,5 +1,4 @@
-
-from celery.beat import Service
+from services.models import Service
 
 from common import docker_client
 from services.docker_utils import get_service_container
@@ -43,17 +42,17 @@ def start_service(service):
         started.append(container.name)
     return started
 def update_service_deploy_order(application, services_data):
-
     with transaction.atomic():
 
+        services = Service.objects.filter(
+            application=application,
+            id__in=[item["service_id"] for item in services_data]
+        )
+
+        service_map = {str(s.id): s for s in services}
+
         for item in services_data:
+            service_map[str(item["service_id"])].deploy_order = item["deploy_order"]
 
-            service = Service.objects.get(
-                id=item["service_id"],
-                application=application
-            )
-
-            service.deploy_order = item["deploy_order"]
-
-            service.save(update_fields=["deploy_order"])
+        Service.objects.bulk_update(service_map.values(), ["deploy_order"])
 

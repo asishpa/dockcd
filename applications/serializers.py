@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from services.models import Service
 
 
 class ApplicationRegistrationSerializer(serializers.Serializer):
@@ -22,6 +23,9 @@ class ApplicationRegistrationResponseSerializer(serializers.Serializer):
 class ApplicationServiceStatusViewSerializer(serializers.Serializer):
     service_name = serializers.CharField()
     status = serializers.CharField()
+    sync_status = serializers.CharField()
+    desired_commit = serializers.CharField()
+    last_deployed_commit = serializers.CharField()
     service_id = serializers.UUIDField()
     container_count = serializers.IntegerField()
     containers = serializers.ListField(child=serializers.DictField())
@@ -43,3 +47,27 @@ class ApplicationDeleteRequestSerializer(serializers.Serializer):
 class ApplicationDeleteResponseSerializer(serializers.Serializer):
     message = serializers.CharField()
 
+class ServiceStatusSerializer(serializers.ModelSerializer):
+
+    sync_status = serializers.SerializerMethodField()
+
+    def get_sync_status(self, obj):
+        if obj.desired_commit != obj.last_deployed_commit:
+            return "out_of_sync"
+        return "synced"
+
+    class Meta:
+        model = Service
+        fields = [
+            "id",
+            "name",
+            "sync_status",
+            "desired_commit",
+            "last_deployed_commit"
+        ]
+
+class SyncApplicationResponseSerializer(serializers.Serializer):
+    deployment_id = serializers.UUIDField()
+    service_deployments = serializers.ListField(
+        child=serializers.UUIDField()
+    )

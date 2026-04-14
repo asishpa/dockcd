@@ -1,6 +1,8 @@
 from common.exceptions import CommandNotAllowed
 import shlex
 
+import logging
+logger = logging.getLogger(__name__)
 
 def _extract_base_command(command):
     try:
@@ -15,13 +17,18 @@ def _extract_base_command(command):
 
 
 def ensure_allowed_command(command):
-    from services.models import AllowedCommands  # lazy import
+    from services.models import AllowedCommands
 
-    base_command = _extract_base_command(command)
-    allowed = AllowedCommands.objects.filter(command=base_command).exists()
-    if not allowed:
+    command = command.strip()
+    allowed_commands = AllowedCommands.objects.values_list('command', flat=True)
+
+    is_allowed = any(command.startswith(allowed) for allowed in allowed_commands)
+
+    logger.info(f"Validating command '{command}' - allowed: {is_allowed}")
+
+    if not is_allowed:
         raise CommandNotAllowed(
-            f"Command '{base_command}' is not in allowed commands."
+            f"Command '{command}' is not in allowed commands."
         )
 
 def validate_command(user, command):
