@@ -14,7 +14,7 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
 
-  redis:
+  redis_dockcd:
     image: redis
     container_name: redis
     restart: always
@@ -30,7 +30,7 @@ services:
       - redis_data:/bitnami/redis/data
 
   web:
-    image: dockcd:27
+    image: dockcd:31
     working_dir: /app
     command: uvicorn dockcd.asgi:application --host 0.0.0.0 --port 8000
     restart: always
@@ -46,11 +46,11 @@ services:
       - DB_PORT=5432
       - REDIS_HOST=localhost
       - REDIS_PORT=6380
-      - REDIS_URL=redis://:buddy123@redis:6379/0
+      - REDIS_URL=redis://:buddy123@redis_dockcd:6379/0
     env_file:
       - ../.env
     depends_on:
-      - redis
+      - redis_dockcd
     volumes:
       - ../:/app
       - /var/run/docker.sock:/var/run/docker.sock
@@ -58,7 +58,7 @@ services:
     
 
   worker:
-    image: dockcd:27
+    image: dockcd:31
     working_dir: /app
     command: celery -A dockcd worker -l info --concurrency=4
     restart: always
@@ -71,18 +71,18 @@ services:
       - DB_PORT=5432
       - REDIS_HOST=localhost
       - REDIS_PORT=6380
-      - REDIS_URL=redis://:buddy123@redis:6379/0
+      - REDIS_URL=redis://:buddy123@redis_dockcd:6379/0
     env_file:
       - ../.env
     depends_on:
-      - redis
+      - redis_dockcd
     volumes:
       - ../:/app
       - /var/run/docker.sock:/var/run/docker.sock
       - /opt/dockcd:/opt/dockcd/
 
   beat:
-    image: dockcd:27
+    image: dockcd:31
     working_dir: /app
     command: celery -A dockcd beat -l info --schedule /var/run/celery/celerybeat-schedule
     restart: always
@@ -95,11 +95,11 @@ services:
       - DB_PASSWORD=buddy123
       - REDIS_HOST=localhost
       - REDIS_PORT=6380
-      - REDIS_URL=redis://:buddy123@redis:6379/0
+      - REDIS_URL=redis://:buddy123@redis_dockcd:6379/0
     env_file:
       - ../.env
     depends_on:
-      - redis
+      - redis_dockcd
     volumes:
       - ../:/app
       - /var/run/docker.sock:/var/run/docker.sock

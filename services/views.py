@@ -1,4 +1,5 @@
 from http.client import responses
+import os
 
 from django.shortcuts import render
 from drf_spectacular.utils import extend_schema
@@ -17,6 +18,7 @@ from services.serializers import AllowedCommandCreateRequestSerializer, AllowedC
 from services.services import get_service_status, restart_service, start_service, stop_service
 from services.command_service import validate_command
 from deployment.exec_service import execute_command
+from deployment.services import _git_pull
 from common.exceptions import CommandNotAllowed, ContainerNotFound
 # Create your views here.
 class ServiceStatusView(APIView):
@@ -269,6 +271,7 @@ class SyncServiceVIew(APIView):
             service = Service.objects.get(id=service_id)
         except Service.DoesNotExist:
             return error_response("SERVICE_NOT_FOUND","Service not found", status=400)
+        _git_pull(service.application.deploy_path, service.application.branch)
         if service.sync_status == "synced":
             return error_response("SERVICE_IN_SYNC","Service is already in sync", status=400)
         deployment = Deployment.objects.create(

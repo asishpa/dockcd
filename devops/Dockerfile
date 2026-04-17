@@ -34,13 +34,17 @@ RUN apt-get update && \
     git --version && \
     rm -rf /var/lib/apt/lists/*
 
+ARG UID=1000
+ARG GID=1000
 ARG DOCKER_GID=999
 
-RUN useradd -m -r appuser && \
+
+RUN groupadd -g ${GID} appuser && \
+    useradd -m -u ${UID} -g ${GID} appuser && \
     mkdir /app && \
     mkdir -p /var/run/celery && \
-    chown -R appuser /app && \
-    chown -R appuser /var/run/celery && \
+    chown -R appuser:appuser /app && \
+    chown -R appuser:appuser /var/run/celery && \
     groupadd -g ${DOCKER_GID} dockeraccess 2>/dev/null || true && \
     usermod -aG ${DOCKER_GID} appuser && \
     id appuser

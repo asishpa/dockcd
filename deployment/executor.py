@@ -48,8 +48,7 @@ class LocalDeploymentExecutor:
 
         try:
             self._mark_running()
-            self._sync_repo()
-            #self._docker_compose_pull()
+            # Repo sync is now handled at application deployment level
             self._docker_compose_up()
             self._mark_success()
         except Exception as exc:
@@ -117,31 +116,6 @@ class LocalDeploymentExecutor:
             self.deployment.finished_at = None
 
         self.deployment.save(update_fields=["status", "finished_at"])
-    # --------------------
-    # Git operations
-    # --------------------
-
-    def _sync_repo(self):
-        deploy_path = self.service.deploy_path
-        repo_url = self.application.repo_url
-        branch = self.application.branch
-
-        if not os.path.exists(deploy_path):
-            self._git_clone(repo_url, deploy_path, branch)
-        else:
-            self._git_pull(deploy_path, branch)
-    def _git_clone(self, repo_url, deploy_path, branch):
-        self._run_cmd(
-         ["git", "clone", "-b", branch, repo_url, deploy_path],
-         cwd=os.path.dirname(deploy_path)
-        )
-
-    def _git_pull(self, deploy_path, branch):
-        print(deploy_path)
-        self._run_cmd(["git", "fetch", "origin"], cwd=deploy_path)
-        self._run_cmd(["git", "checkout", branch], cwd=deploy_path)
-        self._run_cmd(["git", "pull", "origin", branch], cwd=deploy_path)
-
     # --------------------
     # Docker operations
     # --------------------
