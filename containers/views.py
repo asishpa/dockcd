@@ -2,6 +2,8 @@ from django.shortcuts import render
 from drf_spectacular.types import OpenApiTypes
 from rest_framework.views import APIView
 from common.docker_client import docker_client
+from common.podman_client import podman_client
+from common.runtime_client import get_container_runtime_client
 from common.api_response import success_response,error_response
 from common.permissions import IsAutheneticatedUser
 from containers.container_actions import start_container, stop_container, restart_container
@@ -67,9 +69,9 @@ class ContainerStartView(APIView):
         request=ContainerStartRequestSerializer,
         responses=ContainerStartResponseSerializer
     )
-    def post(self, request, container_id, *args, **kwargs):
-        start_container(container_id)
-        return success_response({"message": f"Container {container_id} started successfully"})
+    def post(self, request, *args, **kwargs):
+        start_container(request.data.get('container_id'),request.data.get('application_id'))
+        return success_response({"message": f"Container {request.data.get('container_id')} started successfully"})
 
 class ContainerStopView(APIView):
     permission_classes = [IsAutheneticatedUser]
@@ -94,9 +96,9 @@ class ContainerRestartView(APIView):
         request = ContainerRestartRequestSerializer,
         responses = ContainerRestartResponseSerializer
     )
-    def post(self, request, container_id):
-        restart_container(container_id)
-        return success_response({"message": f"Container {container_id} restarted successfully"})
+    def post(self, request):
+        restart_container(request.data.get('container_id'), request.data.get('application_id'))
+        return success_response({"message": f"Container {request.data.get('container_id')} restarted successfully"})
 
 class ContainerListView(APIView):
     permission_classes = [IsAutheneticatedUser]
@@ -117,3 +119,15 @@ class ContainerListView(APIView):
         container_data = get_application_containers(request.GET.get("application_id"))
 
         return success_response({"containers": container_data})
+
+class ContainerImagesView(APIView):
+    permission_classes = [IsAutheneticatedUser]
+
+    @extend_schema(
+            tags=["Containers"],
+        responses=OpenApiTypes.OBJECT
+    )   
+    def get(self, request):
+        images = docker_client.images.list()
+        image_data = [{"id": image.id, "tags": image.tags} for image in images]
+        return success_response({"images": image_data})

@@ -16,17 +16,28 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Stage 2: Production stage
 FROM python:3.13-slim
 
-# Install docker CLI
+ARG UID=1000
+ARG GID=1000
+ARG DOCKER_GID=999
+
+# Claim GIDs FIRST before podman/systemd steals 998 and 999
+RUN groupadd -g ${GID} appuser && \
+    useradd -m -u ${UID} -g ${GID} appuser && \
+    mkdir -p /app /var/run/celery && \
+    chown -R appuser:appuser /app /var/run/celery
+
+# Install docker CLI (podman/systemd can no longer steal 998/999)
 RUN apt-get update && \
     apt-get install -y curl gnupg ca-certificates && \
     curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
     echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian bookworm stable' > /etc/apt/sources.list.d/docker.list && \
     apt-get update && \
-    apt-get install -y docker-ce-cli docker-compose-plugin && \
+    apt-get install -y docker-ce-cli docker-compose-plugin podman && \
     rm -rf /var/lib/apt/lists/* && \
     which docker && \
     docker --version && \
     docker compose version
+
 # Install git CLI
 RUN apt-get update && \
     apt-get install -y git && \
@@ -34,20 +45,11 @@ RUN apt-get update && \
     git --version && \
     rm -rf /var/lib/apt/lists/*
 
-ARG UID=1000
-ARG GID=1000
-ARG DOCKER_GID=999
-
-
-RUN groupadd -g ${GID} appuser && \
-    useradd -m -u ${UID} -g ${GID} appuser && \
-    mkdir /app && \
-    mkdir -p /var/run/celery && \
-    chown -R appuser:appuser /app && \
-    chown -R appuser:appuser /var/run/celery && \
-    groupadd -g ${DOCKER_GID} dockeraccess 2>/dev/null || true && \
+# Add appuser to docker group (now safe since we own 999)
+RUN groupadd -g ${DOCKER_GID} dockeraccess 2>/dev/null || true && \
     usermod -aG ${DOCKER_GID} appuser && \
     id appuser
+
 
 
 COPY --from=builder /usr/local/lib/python3.13/site-packages/ /usr/local/lib/python3.13/site-packages/

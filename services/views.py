@@ -1,11 +1,8 @@
 from http.client import responses
 import os
 
-from django.shortcuts import render
 from drf_spectacular.utils import extend_schema
-from requests import request
 from rest_framework.views import APIView
-from yaml import serializer
 from common import docker_client
 from common.api_response import success_response,error_response
 from common.permissions import IsAdminOrDeveloper, IsAutheneticatedUser, IsAdmin
@@ -19,7 +16,6 @@ from services.services import get_service_status, restart_service, start_service
 from services.command_service import validate_command
 from deployment.exec_service import execute_command
 from deployment.services import _git_pull
-from common.exceptions import CommandNotAllowed, ContainerNotFound
 # Create your views here.
 class ServiceStatusView(APIView):
     permission_classes = [IsAutheneticatedUser]
@@ -27,8 +23,8 @@ class ServiceStatusView(APIView):
         responses=ServiceStatusViewResponseSerializer,
         tags=["Services"]
     )
-    def get(self,request,service_id):
-        service = Service.objects.get(id=service_id)
+    def get(self,request):
+        service = Service.objects.get(id=request.data.get("service_id"))
         status  = get_service_status(service)
         serializer = ServiceStatusViewResponseSerializer(data=status)
         serializer.is_valid(raise_exception=True)
@@ -60,8 +56,8 @@ class StopServiceView(APIView):
         request= ServiceActionRequestSerializer,
         responses=ServiceActionResponseSerializer
     )
-    def post(self,request,service_id):
-        service = Service.objects.get(id=service_id)
+    def post(self,request):
+        service = Service.objects.get(id=request.data.get("service_id"))
         stopped_containers = stop_service(service)
         serializer = ServiceActionResponseSerializer(data={
             "action": "stop",
@@ -77,8 +73,8 @@ class StartServiceView(APIView):
         request= ServiceActionRequestSerializer,
         responses=ServiceActionResponseSerializer
     )
-    def post(self,request,service_id):
-        service = Service.objects.get(id=service_id)
+    def post(self,request):
+        service = Service.objects.get(id=request.data.get("service_id"))
         started_containers = start_service(service)
         serializer = ServiceActionResponseSerializer(data={
             "action": "start",
@@ -122,10 +118,10 @@ class ServiceContainersView(APIView):
         tags=["Services"],
         responses=ServiceContainersViewResponseSerializer
     )
-    def get(self,request,service_id):
+    def get(self,request):
 
         try:
-            service = Service.objects.get(id=service_id)
+            service = Service.objects.get(id=request.data.get("service_id"))
         except Service.DoesNotExist:
             return error_response("SERVICE_NOT_FOUND","Service not found", status=400)
         containers = get_service_container(service)
@@ -266,9 +262,9 @@ class SyncServiceVIew(APIView):
         tags=["Services"],
         responses=SyncServiceResponseSerializer
     )               
-    def post(self,request,service_id):
+    def post(self,request):
         try:
-            service = Service.objects.get(id=service_id)
+            service = Service.objects.get(id=request.data.get("service_id"))
         except Service.DoesNotExist:
             return error_response("SERVICE_NOT_FOUND","Service not found", status=400)
         _git_pull(service.application.deploy_path, service.application.branch)

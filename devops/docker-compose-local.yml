@@ -30,7 +30,8 @@ services:
       - redis_data:/bitnami/redis/data
 
   web:
-    image: dockcd:31
+    image: dockcd:38
+    container_name: dockcd_svc
     working_dir: /app
     command: uvicorn dockcd.asgi:application --host 0.0.0.0 --port 8000
     restart: always
@@ -58,7 +59,8 @@ services:
     
 
   worker:
-    image: dockcd:31
+    image: dockcd:38
+    container_name: dockcd_worker
     working_dir: /app
     command: celery -A dockcd worker -l info --concurrency=4
     restart: always
@@ -82,7 +84,8 @@ services:
       - /opt/dockcd:/opt/dockcd/
 
   beat:
-    image: dockcd:31
+    image: dockcd:38
+    container_name: dockcd_beat
     working_dir: /app
     command: celery -A dockcd beat -l info --schedule /var/run/celery/celerybeat-schedule
     restart: always

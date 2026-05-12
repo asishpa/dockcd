@@ -1,14 +1,20 @@
-from common import docker_client
+from common import docker_client,podman_client
+from common.runtime_client import get_container_runtime_client
 from common.exceptions import ContainerNotFound
+from applications.models import Application
 
-def execute_command(user, container_name, command):
+def execute_command(user, container_name, command, application_id):
     from services.command_service import validate_command  # lazy import
 
     validate_command(user, command)
 
     try:
-        container = docker_client.containers.get(container_name)
+        application = Application.objects.get(id=application_id)
+        runtime_client = get_container_runtime_client(application.deployment_type)
+        container = runtime_client.containers.get(container_name)
     except docker_client.errors.NotFound:
+        raise ContainerNotFound(f"Container {container_name} not found")
+    except podman_client.errors.NotFound:
         raise ContainerNotFound(f"Container {container_name} not found")
 
     exec_instance = container.exec_run(command, stdout=True, stderr=True)

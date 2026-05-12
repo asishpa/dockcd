@@ -1,6 +1,6 @@
-# DockCD
+ # DockCD
 
-DockCD is a deployment and operations platform for Docker Compose environments.
+DockCD is a deployment and operations platform for Docker Compose environments similar to Argocd for k8s.
 It gives application teams self-service control over routine operations that were previously handled manually by DevOps.
 
 ## What Problem We Had And How DockCD Solves It
@@ -25,6 +25,24 @@ The old flow required pushing code, logging in to servers, pulling code manually
 
 Solution:
 DockCD automates deployment execution with queued handling, controlled ordering, and both manual and webhook-driven triggers.
+
+### Problem: Service startup dependencies were hard to manage
+
+Teams needed certain services to come up first (for example: NATS and DB), then auth, and then dependent services like analytics.
+Without fixed ordering, deployments could start in the wrong sequence and cause avoidable failures.
+
+Solution:
+DockCD lets teams configure deployment order one time per application.
+That order is reused on every deployment, so dependency services start first, then core services, and finally dependent services.
+
+### Problem: Metadata updates in client repos required manual restarts
+
+Developers had to run manual restart tasks to load metadata changes after updates in client repositories.
+This created repetitive operational work and consumed engineering time.
+
+Solution:
+DockCD provides controlled self-service restart and sync actions, plus webhook-based automation where applicable.
+This reduces manual intervention and overall man-hours spent on routine metadata rollout tasks.
 
 ### Problem: Operational access was hard to control safely
 
@@ -74,6 +92,8 @@ Each service points to its compose configuration and runtime location.
 How deployment order is handled:
 
 - services are assigned an execution order
+- order is configured once per application and reused for every deployment
+- this lets teams start dependency services first (for example: NATS and DB), then core services (for example: Auth), and finally dependent consumers (for example: Analytics)
 - when a deployment starts, service deployments follow that configured order
 - if a service is already being deployed, new work is queued and processed next
 - this prevents out-of-order rollouts and avoids overlapping actions on the same service
@@ -107,6 +127,25 @@ Log output is captured during execution and made available in two ways:
 DockCD can receive source-control events and decide what needs deployment.
 It ignores duplicate or irrelevant events and only schedules work that matches configured services.
 
+### GitHub webhook flow and out-of-sync checks
+
+DockCD uses commit tracking per service:
+
+- `desired_commit`: commit that should be running
+- `last_deployed_commit`: commit that is currently deployed
+- `sync_status`: computed as `out_of_sync` when commits differ, otherwise `synced`
+
+How the flow works:
+
+1. A GitHub push event is received.
+2. DockCD verifies authenticity and ignores duplicate deliveries.
+3. DockCD compares changed files with each service's tracked paths.
+4. Services affected by those file changes are marked with a new `desired_commit`.
+5. When `desired_commit` and `last_deployed_commit` are different, that service is considered `out_of_sync`.
+6. Running sync/deployment for the service updates `last_deployed_commit`, and the service returns to `synced`.
+
+In short, webhook events mark what should be running, and deployment execution confirms what is actually running.
+
 ### Alerts
 
 DockCD supports rule-based alerts and notification channels for runtime issues so teams can respond quickly when containers are unhealthy.
@@ -139,6 +178,39 @@ How these layers work together:
 5. Deployment output is streamed and stored.
 6. Queued work continues automatically until all related services are completed.
 
+## Repository Structure We Follow
+
+For client application repositories managed by DockCD, we follow a predictable folder layout so service discovery, webhook matching, and operational actions stay consistent.
+
+Typical structure:
+
+```text
+deployment-local-demo/
+├── database/
+├── essentials/
+│   └── docker-compose.yml
+├── microfrontend/
+├── nginx/
+├── services/
+│   ├── <service-name-1>/
+│   │   ├── config.env
+│   │   └── docker-compose.yml
+│   ├── <service-name-2>/
+│   │   ├── config.env
+│   │   └── docker-compose.yml
+│   └── ...
+├── client.env
+├── global.env
+└── .gitignore
+```
+
+Why this structure helps:
+
+- each service keeps its own `docker-compose.yml` and `config.env` close to service code
+- shared environment defaults stay centralized (`client.env`, `global.env`)
+- platform-level components (`database`, `nginx`, `essentials`) are clearly separated from business services
+- file-change based webhook matching is easier and more reliable because paths are predictable
+
 ## Operational Guarantees
 
 - one active deployment per service at a time
@@ -166,7 +238,7 @@ Install these on the target server:
 
 - Docker Engine (with Docker Compose plugin)
 - Git
-- A Linux user for DockCD runtime (recommended: `dockcd`)
+- sudo access to run setup commands
 
 Verify:
 
@@ -178,15 +250,27 @@ git --version
 
 ### 2. Create runtime user and folders
 
-Use a dedicated user and predictable folder layout.
+Use the setup script to create the runtime user and base platform directory.
 
 ```bash
-sudo useradd -m -s /bin/bash dockcd || true
-sudo mkdir -p /opt/dockcd
+bash install.sh
+```
+
+The script:
+
+- creates a `dockcd` system user if missing
+- sets `/opt/dockcd` as its home directory
+- sets shell to `nologin`
+- ensures `/opt/dockcd` exists and is owned by `dockcd:dockcd`
+- prints the `dockcd` UID/GID for Docker-related usage
+
+Create runtime data directories:
+
+```bash
 sudo mkdir -p /srv/dockcd/apps
 sudo mkdir -p /srv/dockcd/data/postgres
 sudo mkdir -p /srv/dockcd/data/redis
-sudo chown -R dockcd:dockcd /opt/dockcd /srv/dockcd
+sudo chown -R dockcd:docker /srv/dockcd
 sudo chmod -R 775 /srv/dockcd
 ```
 
@@ -207,21 +291,10 @@ newgrp docker
 
 If you skip this step, clone/deploy actions may fail when DockCD tries to start or inspect containers.
 
-### 4. Clone DockCD repository with correct ownership
-
-```bash
-sudo -u dockcd -H bash -lc 'cd /opt/dockcd && git clone <your-dockcd-repo-url> .'
-```
-
-Keep ownership aligned with the runtime user:
-
-```bash
-sudo chown -R dockcd:dockcd /opt/dockcd
-```
 
 ### 5. Define environment file
 
-Create an environment file at `/opt/dockcd/.env.prod`:
+Create an environment file at `/<clone-path>/.env.prod`:
 
 ```env
 ENVIRONMENT=production
@@ -249,96 +322,21 @@ For production, run DockCD as multiple containers:
 - `dockcd-beat` (Celery beat scheduler)
 - optional: `nginx` reverse proxy
 
-### 7. Example production compose with volume mounts
+### 7. Compose manifest source of truth
 
-Create `/opt/dockcd/docker-compose.prod.yml`:
+The production compose manifest changes over time, so keep a single maintained compose file in your deployment repository and use that as the source of truth.
 
-```yaml
-services:
-	postgres:
-		image: postgres:16
-		restart: always
-		environment:
-			POSTGRES_DB: ${DB_NAME}
-			POSTGRES_USER: ${DB_USER}
-			POSTGRES_PASSWORD: ${DB_PASSWORD}
-		volumes:
-			- /srv/dockcd/data/postgres:/var/lib/postgresql/data
+Required runtime mounts in your compose file:
 
-	redis:
-		image: redis:7
-		command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
-		restart: always
-		volumes:
-			- /srv/dockcd/data/redis:/data
-
-	dockcd-web:
-		build:
-			context: .
-			dockerfile: devops/Dockerfile
-		env_file:
-			- .env.prod
-		command: gunicorn --bind 0.0.0.0:8000 --workers 3 dockcd.wsgi:application
-		depends_on:
-			- postgres
-			- redis
-		restart: always
-		ports:
-			- "8000:8000"
-		volumes:
-			- /var/run/docker.sock:/var/run/docker.sock
-			- /srv/dockcd/apps:/srv/dockcd/apps
-
-	dockcd-worker:
-		build:
-			context: .
-			dockerfile: devops/Dockerfile
-		env_file:
-			- .env.prod
-		command: celery -A dockcd worker -l info
-		depends_on:
-			- postgres
-			- redis
-		restart: always
-		volumes:
-			- /var/run/docker.sock:/var/run/docker.sock
-			- /srv/dockcd/apps:/srv/dockcd/apps
-
-	dockcd-beat:
-		build:
-			context: .
-			dockerfile: devops/Dockerfile
-		env_file:
-			- .env.prod
-		command: celery -A dockcd beat -l info
-		depends_on:
-			- postgres
-			- redis
-		restart: always
-		volumes:
-			- /var/run/docker.sock:/var/run/docker.sock
-			- /srv/dockcd/apps:/srv/dockcd/apps
-```
-
-Important volume notes:
-
-- `/var/run/docker.sock:/var/run/docker.sock` lets DockCD control Docker on the host
-- `/srv/dockcd/apps:/srv/dockcd/apps` ensures cloned repositories and compose files are shared and persistent
-- `/srv/dockcd/data/postgres:/var/lib/postgresql/data` persists database state
+- `/var/run/docker.sock:/var/run/docker.sock` so DockCD can control Docker on the host
+- `/srv/dockcd/apps:/srv/dockcd/apps` so managed repositories and compose files are persistent
+- host data mounts for database and redis persistence
 
 ### 8. Bring up the platform
 
-```bash
-cd /opt/dockcd
-docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
-```
+Use your maintained production compose manifest to start the stack in detached mode.
 
-Run migrations and create admin user:
-
-```bash
-docker compose --env-file .env.prod -f docker-compose.prod.yml exec dockcd-web python manage.py migrate
-docker compose --env-file .env.prod -f docker-compose.prod.yml exec dockcd-web python manage.py createsuperuser
-```
+After services are up, run database migrations from the web/API container and create the initial admin user.
 
 ### 9. Folder permissions required for application cloning
 
@@ -363,12 +361,10 @@ sudo -u dockcd -H bash -lc 'mkdir -p /srv/dockcd/apps/permission-test && rm -rf 
 
 Use these checks after deployment:
 
-```bash
-docker compose -f docker-compose.prod.yml ps
-docker compose -f docker-compose.prod.yml logs -f dockcd-web
-docker compose -f docker-compose.prod.yml logs -f dockcd-worker
-docker compose -f docker-compose.prod.yml logs -f dockcd-beat
-```
+- confirm all required containers are running
+- inspect web/API, worker, and scheduler logs for startup errors
+- verify database and redis connectivity from application services
+- verify webhook-triggered and manual deployment flows are both working
 
 If repository cloning fails, check:
 

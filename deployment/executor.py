@@ -57,6 +57,7 @@ class LocalDeploymentExecutor:
             print(f"Deployment failed for service {self.service.name}: {exc}")
             raise
         finally:
+            logger.info(f"Finished deployment for service {self.service.name}. Releasing lock and triggering next deployment if any.")
             self._release_lock()
             self._trigger_next_deployment()
 
@@ -183,27 +184,35 @@ class LocalDeploymentExecutor:
     
 
     def _acquire_lock(self):
-        lock_key = f"deploy_lock:{self.service.id}"
-        acquired = redis_client.set(lock_key,self.lock_token, nx=True, ex=120)
+        lock_key = "deploy_lock:global"
+        acquired = redis_client.set(
+            lock_key,
+            self.lock_token,
+            nx=True,
+            ex=120
+        )
         return acquired
     
     def _release_lock(self):
-        lock_key = f"deploy_lock:{self.service.id}"
+        lock_key = "deploy_lock:global"
         token = redis_client.get(lock_key)
         if isinstance(token, bytes):
             token = token.decode("utf-8")
         if token == self.lock_token:
             redis_client.delete(lock_key)
+            logger.info("Released deployment lock")
 
     def _trigger_next_deployment(self):
+        logger.info(f"Checking for queued deployments for service {self.service.name}")
         #this is intenetional to break circular import as run_deployment also imports LocalDeploymentExecutor to run the deployment task
         from .tasks import run_deployment
         queued = (
             ServiceDeployment.objects
-            .filter(service=self.service, status=ServiceDeployment.STATUS_QUEUEUED)
+            .filter(deployment=self.deployment, status=ServiceDeployment.STATUS_QUEUEUED)
             .exclude(id=self.service_deployment.id)
             .order_by("deployment__created_at", "id")
         )
+        logger.info(f"Found {queued.count()} queued deployments for services")
         next_service_deployment = queued.first()
         if not next_service_deployment:
             return

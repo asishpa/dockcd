@@ -35,6 +35,7 @@ class RegisterApplicationView(APIView):
         response_data = ApplicationRegistrationResponseSerializer({
             "application_id": application.id
         ,   "name": application.name
+        ,   "deployment_type": application.deployment_type
         }).data
         return success_response(response_data)
     

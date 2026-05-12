@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 class ContainerBaseSerializer(serializers.Serializer):
     container_id = serializers.CharField(max_length=255)
+    application_id = serializers.UUIDField()
 
 class ContainerOperationResponseSerializer(ContainerBaseSerializer):
     message = serializers.CharField(max_length=255)

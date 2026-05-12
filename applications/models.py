@@ -10,7 +10,8 @@ class Application(models.Model):
     branch = models.CharField(max_length=100, default="main")
     deploy_path = models.CharField(max_length=255, default="/opt/dockcd/apps")
     description = models.TextField(blank=True)
-
+    deployment_type_choices =models.Choices("docker", "podman")
+    deployment_type = models.CharField(max_length=50, choices=deployment_type_choices.choices,default="docker")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

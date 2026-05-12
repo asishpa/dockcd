@@ -1,10 +1,11 @@
-from common.docker_client import docker_client
+from common.runtime_client import get_container_runtime_client
 from applications.models import Application
 def get_application_containers(application_id):
     application = Application.objects.get(id=application_id)
     deploy_path = application.deploy_path.rstrip("/")
 
-    containers = docker_client.containers.list(all=True)
+    runtime_client = get_container_runtime_client(application.deployment_type)
+    containers = runtime_client.containers.list(all=True)
 
     container_data = []
 

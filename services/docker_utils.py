@@ -1,11 +1,11 @@
 import docker
 import shlex
 
-from common.docker_client import docker_client
+from common.runtime_client import get_container_runtime_client
 from common.exceptions import ContainerNotFound
 def get_service_container(service):
 
-    containers = docker_client.containers.list(
+    containers = get_container_runtime_client.containers.list(
         all=True,
         filters={
             "label":[f"com.docker.compose.service={service.name}"]}
@@ -60,8 +60,8 @@ def _run_process_command(container, command):
 
 def execute_command(conatiner_name, command, mode="auto"):
     try:
-        container = docker_client.containers.get(conatiner_name)
-    except docker_client.errors.NotFound:
+        container = get_container_runtime_client.containers.get(conatiner_name)
+    except get_container_runtime_client.errors.NotFound:
         raise ContainerNotFound(f"Container with name {conatiner_name} not found.")
 
     if mode == "process":
@@ -90,7 +90,7 @@ def execute_command(conatiner_name, command, mode="auto"):
                 yield chunk
 
         return combined_stream()
-    except docker.errors.APIError as exc:
+    except get_container_runtime_client.errors.APIError as exc:
         if not _is_bash_unavailable_error(exc):
             raise
 

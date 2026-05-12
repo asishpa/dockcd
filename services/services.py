@@ -1,6 +1,5 @@
 from services.models import Service
 
-from common import docker_client
 from services.docker_utils import get_service_container
 from django.db import transaction
 

@@ -7,7 +7,7 @@ import logging
 from services.command_service import ensure_allowed_command, validate_command
 from .docker_utils import execute_command
 from asgiref.sync import sync_to_async
-from common.docker_client import docker_client
+from common.runtime_client import get_container_runtime_client
 from common.exceptions import CommandNotAllowed
 # from services.command_service import validate_command
 
@@ -113,7 +113,7 @@ class ContainerLogsConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.container_name = self.scope['url_route']['kwargs']['container_name']
         try:
-            self.container = await sync_to_async(docker_client.containers.get)(self.container_name)
+            self.container = await sync_to_async(get_container_runtime_client.containers.get)(self.container_name)
         except Exception:
             await self.close()
             return
@@ -153,7 +153,7 @@ class ContainerLogsConsumer(AsyncWebsocketConsumer):
         stop_event = stream["stop_event"]
         loop = stream["loop"]
         try:
-            container = docker_client.containers.get(container_name)
+            container = get_container_runtime_client.containers.get(container_name)
 
             for line in container.logs(stream=True, follow=True):
                 if stop_event.is_set():

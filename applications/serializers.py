@@ -8,6 +8,7 @@ class ApplicationRegistrationSerializer(serializers.Serializer):
     branch = serializers.CharField(default="main")
     deploy_path = serializers.CharField()
     already_cloned = serializers.BooleanField(default=False)
+    deployment_type = serializers.ChoiceField(choices=[("docker", "Docker"), ("podman", "Podman")])
 
     def validate_deploy_path(self, value):
         if not value.startswith("/opt/dockcd"):
@@ -19,6 +20,7 @@ class ApplicationRegistrationSerializer(serializers.Serializer):
 class ApplicationRegistrationResponseSerializer(serializers.Serializer):
     application_id = serializers.UUIDField()
     name = serializers.CharField(max_length=100)
+    deployment_type = serializers.CharField()
 
 class ApplicationServiceStatusViewSerializer(serializers.Serializer):
     service_name = serializers.CharField()

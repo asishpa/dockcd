@@ -135,3 +135,5 @@ media/
 Thumbs.db
 db.sqlite3
 postgres_data/
+
+*.sql
