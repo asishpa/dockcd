@@ -58,10 +58,6 @@ staticfiles/
 .env
 .env.*
 
-# Django migrations (optional — many teams keep these)
-
-**/migrations/*
-!**/migrations/**init**.py
 
 # IDE / Editor
 
