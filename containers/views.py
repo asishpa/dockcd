@@ -2,7 +2,6 @@ from django.shortcuts import render
 from drf_spectacular.types import OpenApiTypes
 from rest_framework.views import APIView
 from common.docker_client import docker_client
-from common.podman_client import podman_client
 from common.runtime_client import get_container_runtime_client
 from common.api_response import success_response,error_response
 from common.permissions import IsAutheneticatedUser
