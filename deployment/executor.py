@@ -121,15 +121,26 @@ class LocalDeploymentExecutor:
     # Docker operations
     # --------------------
 
+    def _compose_command(self):
+        deployment_type = (self.application.deployment_type or "").strip().lower()
+
+        if deployment_type == "podman":
+            return ["podman", "compose"]
+
+        if deployment_type == "docker" or not deployment_type:
+            return ["docker", "compose"]
+
+        raise ValueError(f"Unsupported deployment type: {self.application.deployment_type}")
+
     def _docker_compose_pull(self):
         self._run_cmd(
-            ["docker", "compose", "-f", self.service.compose_file_path, "pull"],
+            self._compose_command() + ["-f", self.service.compose_file_path, "pull"],
             cwd=self.service.deploy_path
         )
 
     def _docker_compose_up(self):
         self._run_cmd(
-            ["docker", "compose", "-f", self.service.compose_file_path, "up", "-d"],
+            self._compose_command() + ["-f", self.service.compose_file_path, "up", "-d"],
             cwd=self.service.deploy_path
         )
 

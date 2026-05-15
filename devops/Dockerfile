@@ -32,11 +32,14 @@ RUN apt-get update && \
     curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
     echo 'deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian bookworm stable' > /etc/apt/sources.list.d/docker.list && \
     apt-get update && \
-    apt-get install -y docker-ce-cli docker-compose-plugin podman && \
+    apt-get install -y docker-ce-cli docker-compose-plugin podman-remote && \
     rm -rf /var/lib/apt/lists/* && \
     which docker && \
     docker --version && \
     docker compose version
+
+RUN ln -s /usr/bin/podman-remote /usr/local/bin/podman
+
 
 # Install git CLI
 RUN apt-get update && \
