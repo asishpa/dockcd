@@ -30,7 +30,7 @@ services:
       - redis_data:/bitnami/redis/data
 
   web:
-    image: dockcd:39
+    image: dockcd:40
     container_name: dockcd_svc
     working_dir: /app
     command: uvicorn dockcd.asgi:application --host 0.0.0.0 --port 8000
@@ -59,7 +59,7 @@ services:
     
 
   worker:
-    image: dockcd:39
+    image: dockcd:40
     container_name: dockcd_worker
     working_dir: /app
     command: celery -A dockcd worker -l info --concurrency=4
@@ -84,7 +84,7 @@ services:
       - /opt/dockcd:/opt/dockcd/
 
   beat:
-    image: dockcd:39
+    image: dockcd:40
     container_name: dockcd_beat
     working_dir: /app
     command: celery -A dockcd beat -l info --schedule /var/run/celery/celerybeat-schedule

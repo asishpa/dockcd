@@ -163,14 +163,31 @@ class LocalDeploymentExecutor:
 
     def _run_cmd(self, cmd, cwd):
 
+        env = os.environ.copy()
+
+        podman_socket = env.get("PODMAN_SOCKET")
+
+        if podman_socket:
+            env["CONTAINER_HOST"] = podman_socket
+
+        if podman_socket.startswith("unix:///run/user/"):
+            runtime_dir = (
+                podman_socket
+                .replace("unix://", "")
+                .split("/podman/")[0]
+            )
+
+            env["XDG_RUNTIME_DIR"] = runtime_dir
+
         process = subprocess.Popen(
-            cmd,
-            cwd=cwd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1
-        )
+        cmd,
+        cwd=cwd,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1
+    )
 
         command_str = " ".join(cmd)
 
