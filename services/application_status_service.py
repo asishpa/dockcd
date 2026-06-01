@@ -1,6 +1,6 @@
 from docker import client
 
-from common.docker_client import docker_client
+#from common.docker_client import docker_client
 from common.runtime_client import get_container_runtime_client
 from applications.models import Application
 import logging

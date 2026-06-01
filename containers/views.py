@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from drf_spectacular.types import OpenApiTypes
 from rest_framework.views import APIView
-from common.docker_client import docker_client
+#from common.docker_client import docker_client
 from common.runtime_client import get_container_runtime_client
 from common.api_response import success_response,error_response
 from common.permissions import IsAutheneticatedUser
@@ -47,8 +47,8 @@ class ContainerLogsView(APIView):
             return error_response("INVALID_TAIL", "tail must be an integer", status=400)
 
         try:
-            container = docker_client.containers.get(container_id)
-        except docker_client.errors.NotFound:
+            container = get_container_runtime_client().containers.get(container_id)
+        except get_container_runtime_client().errors.NotFound:
             return error_response("CONTAINER_NOT_FOUND", "Container not found", status=400)
 
         logs = container.logs(tail=tail).decode("utf-8").splitlines()
@@ -127,7 +127,7 @@ class ContainerImagesView(APIView):
         responses=OpenApiTypes.OBJECT
     )   
     def get(self, request):
-        containers = docker_client.containers.list(all=True)
+        containers = get_container_runtime_client().containers.list(all=True)
         used_images = {}
         for container in containers:
             image = container.image
