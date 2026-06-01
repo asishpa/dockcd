@@ -6,7 +6,7 @@ from alerts.services import should_trigger_alert, trigger_alert
 def evaluate_container_down(application_id):
     application = Application.objects.get(id=application_id)
     deploy_path = application.deploy_path.rstrip("/")
-    containers = get_container_runtime_client().containers.list(all=True)
+    containers = get_container_runtime_client(application.deployment_type).containers.list(all=True)
     alert_rules = fetch_alert_rule_for_application(application_id, "container_down")
     for c in containers:
         labels = c.labels
@@ -21,7 +21,7 @@ def evaluate_container_down(application_id):
 def evaluate_container_restarting(application_id):
     application = Application.objects.get(id=application_id)
     deploy_path = application.deploy_path.rstrip("/")
-    containers = get_container_runtime_client().containers.list(all=True)
+    containers = get_container_runtime_client(application.deployment_type).containers.list(all=True)
     alert_rules = fetch_alert_rule_for_application(application_id, "container_restarting")
     for c in containers:
         labels = c.labels

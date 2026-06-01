@@ -3,12 +3,14 @@ import json
 import asyncio
 import threading
 import logging
+from urllib.parse import parse_qs
 
 from services.command_service import ensure_allowed_command, validate_command
 from .docker_utils import execute_command
 from asgiref.sync import sync_to_async
 from common.runtime_client import get_container_runtime_client
 from common.exceptions import CommandNotAllowed
+from applications.models import Application
 # from services.command_service import validate_command
 
 # Track threads to make sure that only one thread per conntaner is running
@@ -112,8 +114,23 @@ class ContainerLogsConsumer(AsyncWebsocketConsumer):
 
     async def connect(self):
         self.container_name = self.scope['url_route']['kwargs']['container_name']
+        query_string = self.scope.get("query_string", b"").decode()
+        query_params = parse_qs(query_string)
+        application_id = query_params.get("application_id", [None])[0]
+
+        if not application_id:
+            await self.close()
+            return
+
         try:
-            self.container = await sync_to_async(get_container_runtime_client.containers.get)(self.container_name)
+            self.application = await sync_to_async(Application.objects.get)(id=application_id)
+        except Application.DoesNotExist:
+            await self.close()
+            return
+
+        self.runtime_client = get_container_runtime_client(self.application.deployment_type)
+        try:
+            self.container = await sync_to_async(self.runtime_client.containers.get)(self.container_name)
         except Exception:
             await self.close()
             return
@@ -153,7 +170,7 @@ class ContainerLogsConsumer(AsyncWebsocketConsumer):
         stop_event = stream["stop_event"]
         loop = stream["loop"]
         try:
-            container = get_container_runtime_client.containers.get(container_name)
+            container = self.runtime_client.containers.get(container_name)
 
             for line in container.logs(stream=True, follow=True):
                 if stop_event.is_set():

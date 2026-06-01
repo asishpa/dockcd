@@ -1,11 +1,14 @@
 from http.client import responses
 import os
 
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework.views import APIView
-from common import docker_client
+#from common import docker_client
+from common.runtime_client import get_container_runtime_client
 from common.api_response import success_response,error_response
 from common.permissions import IsAdminOrDeveloper, IsAutheneticatedUser, IsAdmin
+from applications.models import Application
 from deployment.models import Deployment, ServiceDeployment
 from deployment.tasks import run_deployment
 from services.command_service import validate_command
@@ -136,12 +139,43 @@ class ContainerLogsView(APIView):
 
     @extend_schema(
         tags=["Containers"],
+        parameters=[
+            OpenApiParameter(
+                name="application_id",
+                type=OpenApiTypes.UUID,
+                location=OpenApiParameter.QUERY,
+                description="Application used to resolve the container runtime",
+                required=True,
+            ),
+            OpenApiParameter(
+                name="tail",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description="Number of log lines to return",
+                required=False,
+                default=200,
+            ),
+        ],
     )
     def get(self,request,container_name):
-        tail = request.GET.get("tail", 200)
+        application_id = request.query_params.get("application_id")
+        if not application_id:
+            return error_response("INVALID_REQUEST", "application_id is required", status=400)
+
         try:
-            container = docker_client.containers.get(container_name)
-        except docker_client.errors.NotFound:
+            application = Application.objects.get(id=application_id)
+        except Application.DoesNotExist:
+            return error_response("APPLICATION_NOT_FOUND", "Application not found", status=400)
+
+        try:
+            tail = int(request.query_params.get("tail", 200))
+        except ValueError:
+            return error_response("INVALID_TAIL", "tail must be an integer", status=400)
+
+        runtime_client = get_container_runtime_client(application.deployment_type)
+        try:
+            container = runtime_client.containers.get(container_name)
+        except runtime_client.errors.NotFound:
             return error_response("CONTAINER_NOT_FOUND","Container not found", status=400)
         logs = container.logs(tail=tail).decode("utf-8")
         return success_response({
