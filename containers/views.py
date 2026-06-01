@@ -152,7 +152,7 @@ class ContainerImagesView(APIView):
             image = container.image
             used_images[image.id] = {
                 "id": image.id,
-                "tag": image.tags
+                "tag": image.tags[0]
             }
         image_data = list(used_images.values())
         return success_response({"images": image_data})
