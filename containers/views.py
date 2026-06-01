@@ -124,10 +124,29 @@ class ContainerImagesView(APIView):
 
     @extend_schema(
             tags=["Containers"],
+        parameters=[
+            OpenApiParameter(
+                name="application_id",
+                type=OpenApiTypes.UUID,
+                location=OpenApiParameter.QUERY,
+                required=True,
+            )
+        ],
         responses=OpenApiTypes.OBJECT
     )   
     def get(self, request):
-        containers = get_container_runtime_client().containers.list(all=True)
+        application_id = request.query_params.get("application_id")
+        if not application_id:
+            return error_response("INVALID_REQUEST", "application_id is required", status=400)
+
+        try:
+            application = Application.objects.get(id=application_id)
+        except Application.DoesNotExist:
+            return error_response("APPLICATION_NOT_FOUND", "Application not found", status=400)
+
+        runtime_client = get_container_runtime_client(application.deployment_type)
+
+        containers = runtime_client.containers.list(all=True)
         used_images = {}
         for container in containers:
             image = container.image
