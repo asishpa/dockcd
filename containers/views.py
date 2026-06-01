@@ -127,6 +127,13 @@ class ContainerImagesView(APIView):
         responses=OpenApiTypes.OBJECT
     )   
     def get(self, request):
-        images = docker_client.images.list()
-        image_data = [{"id": image.id, "tags": image.tags} for image in images]
+        containers = docker_client.containers.list(all=True)
+        used_images = {}
+        for container in containers:
+            image = container.image
+            used_images[image.id] = {
+                "id": image.id,
+                "tag": image.tags
+            }
+        image_data = list(used_images.values())
         return success_response({"images": image_data})
