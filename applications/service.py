@@ -9,11 +9,25 @@ from common.exceptions import (
     GitCloneFailed
 )
 import os
+from urllib.parse import urlsplit, urlunsplit
+
+
+def _remove_url_credentials(repo_url):
+    parts = urlsplit(repo_url)
+    if not parts.username and not parts.password:
+        return repo_url
+
+    hostname = parts.hostname or ""
+    if parts.port:
+        hostname = f"{hostname}:{parts.port}"
+
+    return urlunsplit((parts.scheme, hostname, parts.path, parts.query, parts.fragment))
 
 
 def register_application_service(validated_data):
     name = validated_data["name"]
-    repo_url = validated_data["repo_url"]
+    raw_repo_url = validated_data["repo_url"]
+    repo_url = _remove_url_credentials(raw_repo_url)
     branch = validated_data["branch"]
     deploy_path = validated_data["deploy_path"]
     already_cloned = validated_data.get("already_cloned", False)
@@ -37,7 +51,7 @@ def register_application_service(validated_data):
     
     if not already_cloned:
         try:
-            clone_repo(repo_url, branch, deploy_path)
+            clone_repo(raw_repo_url, branch, deploy_path)
         except Exception:
             raise GitCloneFailed("Failed to clone repository")
     application = Application.objects.create(
